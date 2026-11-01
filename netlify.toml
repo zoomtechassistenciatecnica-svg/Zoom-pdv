@@ -1,0 +1,3 @@
+[build]
+  command = "node scripts/write-netlify-config.js"
+  publish = "."
