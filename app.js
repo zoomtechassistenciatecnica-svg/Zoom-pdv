@@ -1,6 +1,6 @@
 "use strict";
 
-const DATABASE_ROW_ID = "main-store";
+const STORAGE_KEY = "zoomtech-pdv-data";
 const PAYMENT_METHODS = ["Pix", "Cartão de crédito", "Cartão de débito", "Dinheiro", "Boleto"];
 const COLORS = ["#087eff", "#18b8ff", "#67d8ff", "#41e984", "#0758d1"];
 const PRODUCT_EMOJIS = ["📱", "🔋", "🔌", "🛠️", "🛡️", "📦", "⚡", "🔧"];
@@ -20,6 +20,32 @@ const dateTimeLocalValue = (date) => {
 };
 const makeId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 const money = (value) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+const parseMoneyInput = (input) => {
+  const digits = input.value.replace(/\D/g, "");
+  return digits ? Number(digits) / 100 : 0;
+};
+const setMoneyInput = (input, value) => { input.value = money(Number(value) || 0); };
+function initializeMoneyInputs() {
+  document.querySelectorAll("[data-money-input]").forEach((input) => {
+    const initialValue = Number(input.value);
+    if (input.value && Number.isFinite(initialValue)) setMoneyInput(input, initialValue);
+    input.addEventListener("focus", () => {
+      input.value = "";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    input.addEventListener("input", () => {
+      const digits = input.value.replace(/\D/g, "");
+      input.value = digits ? money(Number(digits) / 100) : "";
+      input.setSelectionRange(input.value.length, input.value.length);
+    });
+    input.addEventListener("blur", () => {
+      if (!input.value) {
+        setMoneyInput(input, 0);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    });
+  });
+}
 const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 const isValidCpf = (value) => {
   const digits = String(value ?? "").replace(/\D/g, "");
@@ -46,10 +72,8 @@ const seedData = () => {
 };
 let state = seedData();
 let supabaseClient = null;
+let currentUserName = "";
 let saveTimer = null;
-let saveQueue = Promise.resolve();
-let databaseVersion = null;
-let databaseWriteBlocked = false;
 let cart = [];
 let currentPage = "dashboard";
 let selectedProductId = null;
@@ -60,44 +84,18 @@ let productImagePromise = Promise.resolve();
 let serviceOrderPattern = [];
 let customerCepRequestId = 0;
 
-function queueStateSave(snapshot) {
-  if (databaseWriteBlocked) return;
-  saveQueue = saveQueue
-    .then(async () => {
-      if (databaseWriteBlocked) return;
-      const { data, error } = await supabaseClient
-        .from("pdv_data")
-        .update({ data: snapshot, version: databaseVersion + 1 })
-        .eq("id", DATABASE_ROW_ID)
-        .eq("version", databaseVersion)
-        .select("version")
-        .maybeSingle();
-      if (error) throw error;
-      if (!data) {
-        databaseWriteBlocked = true;
-        toast("Os dados mudaram em outra sessão. Recarregue a página antes de continuar.", "error");
-        return;
-      }
-      databaseVersion = data.version;
-    })
-    .catch((error) => {
-      console.error("Não foi possível salvar os dados no banco:", error);
-      databaseWriteBlocked = true;
-      toast("Não foi possível sincronizar. Recarregue a página para evitar sobrescrever dados.", "error");
-    });
-}
 function saveState() {
-  if (!supabaseClient || !document.body.classList.contains("is-authenticated")) return;
-  const snapshot = JSON.parse(JSON.stringify(state));
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => queueStateSave(snapshot), 400);
+  saveTimer = setTimeout(flushStateSave, 400);
 }
 function flushStateSave() {
   clearTimeout(saveTimer);
-  if (supabaseClient && document.body.classList.contains("is-authenticated")) {
-    queueStateSave(JSON.parse(JSON.stringify(state)));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    console.error("Não foi possível salvar os dados neste navegador:", error);
+    toast("Não foi possível salvar os dados. Verifique o espaço disponível no navegador.", "error");
   }
-  return saveQueue;
 }
 function toast(message, type = "success") {
   const region = document.getElementById("toast-region");
@@ -139,6 +137,9 @@ function salesInRange(sales, days) {
   return sales.filter((sale) => saleDate(sale) >= start && saleDate(sale) <= new Date(today.getTime() + 86400000));
 }
 function setTodayLabel() {
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+  document.getElementById("greeting-text").textContent = `${greeting}, ${currentUserName || "usuário"}`;
   document.getElementById("today-label").textContent = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }).format(today).replace(".", "");
   const date = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long" }).format(today);
   document.querySelector("#page-dashboard .eyebrow").textContent = date.toLocaleUpperCase("pt-BR");
@@ -196,19 +197,20 @@ function renderChart() {
 }
 function renderPayments() {
   const sales = salesInRange(state.sales, 30);
-  const totals = PAYMENT_METHODS.map((method) => sales.filter((sale) => sale.payment === method).reduce((sum, sale) => sum + sale.total, 0));
+  const methods = [...PAYMENT_METHODS, ...new Set(sales.map((sale) => sale.payment).filter((method) => method && !PAYMENT_METHODS.includes(method)))];
+  const totals = methods.map((method) => sales.filter((sale) => sale.payment === method).reduce((sum, sale) => sum + sale.total, 0));
   const grand = totals.reduce((sum, amount) => sum + amount, 0);
   let start = 0;
   const segments = totals.map((amount, index) => {
     const begin = start;
     start += grand ? amount / grand * 100 : 0;
-    return `${COLORS[index]} ${begin}% ${start}%`;
+    return `${COLORS[index % COLORS.length]} ${begin}% ${start}%`;
   });
   document.getElementById("payment-donut").style.background = grand ? `conic-gradient(${segments.join(",")})` : "#12375e";
   document.getElementById("payment-total").textContent = String(sales.length);
-  document.getElementById("payment-legend").innerHTML = PAYMENT_METHODS.filter((_, index) => totals[index] > 0).map((method) => {
-    const index = PAYMENT_METHODS.indexOf(method);
-    return `<div><i style="background:${COLORS[index]}"></i>${escapeHTML(method)}<strong>${grand ? Math.round(totals[index] / grand * 100) : 0}%</strong></div>`;
+  document.getElementById("payment-legend").innerHTML = methods.filter((_, index) => totals[index] > 0).map((method) => {
+    const index = methods.indexOf(method);
+    return `<div><i style="background:${COLORS[index % COLORS.length]}"></i>${escapeHTML(method)}<strong>${grand ? Math.round(totals[index] / grand * 100) : 0}%</strong></div>`;
   }).join("") || `<div style="grid-column:1/-1;color:#a7bfdd;text-align:center">Sem vendas no período</div>`;
 }
 function renderSales() {
@@ -245,6 +247,9 @@ function renderSelectedProduct() {
     : escapeHTML(product.emoji || "📦");
   container.innerHTML = `<div class="selected-product-details"><div class="selected-product-image"${product.image ? "" : ' aria-hidden="true"'}>${image}</div><div class="selected-product-copy"><strong>${escapeHTML(product.name.toLocaleUpperCase("pt-BR"))}</strong><span>${escapeHTML(product.category)}</span><small>Código: ${escapeHTML(product.sku || "—")}</small><small>${availability}</small><span class="product-stock-pill ${!isService && !product.stock ? "out-of-stock" : ""}">${isService ? "Serviço disponível" : product.stock ? "Peça em estoque" : "Sem estoque"}</span></div><div class="selected-price"><small>${isService ? "Valor do serviço" : "Valor unitário"}</small><strong>${money(product.price)}</strong></div></div><div class="selected-product-controls"><span>Qtd.</span><div class="selected-quantity"><button type="button" data-selected-qty="-1" aria-label="Diminuir quantidade">−</button><strong>${selectedQuantity}</strong><button type="button" data-selected-qty="1" aria-label="Aumentar quantidade">＋</button></div><button type="button" class="add-selected-product" data-add-product="${escapeHTML(product.id)}" ${!isService && product.stock <= 0 ? "disabled" : ""}>🛒 <span>Adicionar</span></button></div>`;
 }
+function getCartProduct(item) {
+  return item.customProduct || state.products.find((product) => product.id === item.productId);
+}
 function addToCart(id) {
   const product = state.products.find((item) => item.id === id);
   if (!product || (product.kind !== "service" && product.stock <= 0)) return toast("Esta peça está sem estoque.", "error");
@@ -260,7 +265,7 @@ function addToCart(id) {
 function renderCart() {
   const count = cart.reduce((sum, item) => sum + item.quantity, 0);
   document.getElementById("cart-count").textContent = String(count);
-  const items = cart.map((item) => ({ ...item, product: state.products.find((product) => product.id === item.productId) })).filter((item) => item.product);
+  const items = cart.map((item) => ({ ...item, product: getCartProduct(item) })).filter((item) => item.product);
   const saleInProgress = items.length > 0;
   document.getElementById("sale-register-status").textContent = saleInProgress ? "Caixa em uso" : "Caixa livre";
   document.getElementById("sale-register-indicator").classList.toggle("is-busy", saleInProgress);
@@ -268,7 +273,7 @@ function renderCart() {
   document.getElementById("sale-table-empty").hidden = items.length > 0;
   document.getElementById("cart-items").innerHTML = items.map(({ product, quantity }, index) => `<tr><td>${index + 1}</td><td><strong>${escapeHTML(product.name)}</strong><small>${escapeHTML(product.sku || product.category)}</small></td><td><span class="table-quantity"><button type="button" data-quantity="-1" data-id="${escapeHTML(product.id)}" aria-label="Diminuir quantidade">−</button>${quantity}<button type="button" data-quantity="1" data-id="${escapeHTML(product.id)}" aria-label="Aumentar quantidade">＋</button></span></td><td>${money(product.price)}</td><td>${money(product.price * quantity)}</td><td><button type="button" class="remove-sale-item" data-remove-item="${escapeHTML(product.id)}" aria-label="Remover ${escapeHTML(product.name)}">▤</button></td></tr>`).join("");
   const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const rawDiscount = Number(document.getElementById("discount-input").value);
+  const rawDiscount = parseMoneyInput(document.getElementById("discount-input"));
   const discount = Number.isFinite(rawDiscount) ? Math.min(Math.max(0, rawDiscount), subtotal) : 0;
   const total = Math.max(0, subtotal - discount);
   const paymentMethod = document.getElementById("payment-method").value;
@@ -278,14 +283,14 @@ function renderCart() {
   document.getElementById("cart-total").textContent = money(total);
   document.getElementById("payment-change").textContent = money(Math.max(0, paid - total));
   const paidInput = document.getElementById("payment-received");
-  if (document.activeElement !== paidInput) paidInput.value = paid.toFixed(2);
+  if (document.activeElement !== paidInput) setMoneyInput(paidInput, paid);
   paidInput.disabled = paymentMethod !== "Dinheiro";
   document.getElementById("checkout-button").disabled = items.length === 0 || (paymentMethod === "Dinheiro" && paid < total);
   document.getElementById("checkout-button").title = items.length && paymentMethod === "Dinheiro" && paid < total ? "O valor recebido precisa cobrir o total da venda." : "";
 }
 function updateQuantity(id, amount) {
   const item = cart.find((entry) => entry.productId === id);
-  const product = state.products.find((entry) => entry.id === id);
+  const product = item && getCartProduct(item);
   if (!item || !product) return;
   const next = item.quantity + amount;
   if (product.kind !== "service" && next > product.stock) return toast(`Estoque disponível: ${product.stock} unidade(s).`, "error");
@@ -294,10 +299,10 @@ function updateQuantity(id, amount) {
   renderCart();
 }
 function finishSale() {
-  const items = cart.map((item) => ({ ...item, product: state.products.find((product) => product.id === item.productId) }));
+  const items = cart.map((item) => ({ ...item, product: getCartProduct(item) }));
   if (!items.length || items.some((item) => !item.product || (item.product.kind !== "service" && item.quantity > item.product.stock))) return toast("Confira os itens e o estoque antes de finalizar.", "error");
   const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const discount = Math.min(Math.max(0, Number(document.getElementById("discount-input").value) || 0), subtotal);
+  const discount = Math.min(Math.max(0, parseMoneyInput(document.getElementById("discount-input"))), subtotal);
   const total = subtotal - discount;
   if (document.getElementById("payment-method").value === "Dinheiro" && (receivedAmount ?? total) < total) return toast("O valor recebido é menor que o total da venda.", "error");
   const customer = state.customers.find((item) => item.id === document.getElementById("sale-customer").value);
@@ -311,19 +316,37 @@ function finishSale() {
     subtotal,
     discount,
     total,
-    items: items.map(({ product, quantity }) => ({ productId: product.id, name: product.name, quantity, price: product.price })),
+    items: items.map(({ product, quantity }) => ({ productId: product.reportId || product.id, name: product.name, quantity, price: product.price })),
   };
   for (const item of items) if (item.product.kind !== "service") item.product.stock -= item.quantity;
   state.sales.unshift(sale);
   saveState();
   cart = [];
   receivedAmount = null;
-  document.getElementById("discount-input").value = "0";
+  setMoneyInput(document.getElementById("discount-input"), 0);
   document.getElementById("sale-customer").value = "";
   document.getElementById("sale-confirmation-text").textContent = `Pedido #${sale.number} registrado em ${money(sale.total)}.`;
   document.getElementById("sale-receipt").textContent = `${sale.items.reduce((sum, item) => sum + item.quantity, 0)} itens · ${sale.payment} · ${sale.customerName}`;
   renderSales();
   document.getElementById("sale-modal").showModal();
+}
+function addCustomService(event) {
+  event.preventDefault();
+  const nameInput = document.getElementById("custom-service-name");
+  const priceInput = document.getElementById("custom-service-price");
+  const name = nameInput.value.trim();
+  const price = parseMoneyInput(priceInput);
+  if (!name || !Number.isFinite(price) || price <= 0) return toast("Informe a descrição e um valor válido para o serviço.", "error");
+  const id = `custom-${makeId()}`;
+  cart.push({
+    productId: id,
+    quantity: 1,
+    customProduct: { id, reportId: `custom:${normalizeSearchText(name)}`, name, category: "Serviço avulso", sku: "", price, kind: "service" },
+  });
+  document.getElementById("custom-service-modal").close();
+  event.currentTarget.reset();
+  renderCart();
+  toast("Serviço avulso adicionado à venda.");
 }
 function renderProducts() {
   const search = document.getElementById("inventory-search").value.trim().toLocaleLowerCase("pt-BR");
@@ -402,8 +425,8 @@ function openProductModal(id = "") {
   document.getElementById("product-name").value = product?.name || "";
   document.getElementById("product-category").value = product?.category || "";
   document.getElementById("product-sku").value = product?.sku || "";
-  document.getElementById("product-price").value = product?.price ?? "";
-  document.getElementById("product-cost").value = product?.cost ?? 0;
+  document.getElementById("product-price").value = product ? money(product.price) : "";
+  setMoneyInput(document.getElementById("product-cost"), product?.cost ?? 0);
   document.getElementById("product-stock").value = product?.stock ?? 0;
   document.getElementById("product-image-file").value = "";
   document.getElementById("product-image-data").value = product?.image || "";
@@ -466,14 +489,14 @@ async function saveProduct(event) {
   const id = document.getElementById("product-id").value;
   const sku = document.getElementById("product-sku").value.trim();
   const kind = document.getElementById("product-kind").value;
-  const price = Number(document.getElementById("product-price").value);
+  const price = parseMoneyInput(document.getElementById("product-price"));
   const stock = kind === "service" ? 0 : Number(document.getElementById("product-stock").value);
   if (!Number.isFinite(price) || price <= 0 || (kind !== "service" && (!Number.isInteger(stock) || stock < 0))) return toast("Informe um preço e um estoque válidos.", "error");
   if (sku && state.products.some((product) => String(product.sku || "").toLocaleLowerCase("pt-BR") === sku.toLocaleLowerCase("pt-BR") && product.id !== id)) return toast("Já existe um item com este código.", "error");
   const existing = state.products.find((product) => product.id === id);
   await productImagePromise;
   const image = document.getElementById("product-image-data").value;
-  const item = { id: id || makeId(), name: document.getElementById("product-name").value.trim(), category: document.getElementById("product-category").value.trim(), sku, price, cost: kind === "service" ? 0 : Number(document.getElementById("product-cost").value) || 0, stock, emoji: existing?.emoji || PRODUCT_EMOJIS[state.products.length % PRODUCT_EMOJIS.length], image, kind };
+  const item = { id: id || makeId(), name: document.getElementById("product-name").value.trim(), category: document.getElementById("product-category").value.trim(), sku, price, cost: kind === "service" ? 0 : parseMoneyInput(document.getElementById("product-cost")), stock, emoji: existing?.emoji || PRODUCT_EMOJIS[state.products.length % PRODUCT_EMOJIS.length], image, kind };
   if (existing) Object.assign(existing, item);
   else state.products.unshift(item);
   saveState();
@@ -519,7 +542,8 @@ function renderServiceOrders() {
   document.getElementById("service-order-count").textContent = `${orders.length} ${orders.length === 1 ? "ordem" : "ordens"}`;
   document.getElementById("service-orders-body").innerHTML = orders.length ? orders.map((order) => {
     const statusClass = order.status === "Pronta" || order.status === "Concluída" || order.status === "Entregue" ? "status-success" : order.status === "Cancelada" ? "status-danger" : order.status === "Em reparo" ? "status-warning" : "status-neutral";
-    return `<tr><td><button type="button" class="service-order-open-button" data-view-service-order="${escapeHTML(order.id)}" aria-label="Abrir ordem OS-${String(order.number).padStart(4, "0")}">OS-${String(order.number).padStart(4, "0")}</button></td><td>${escapeHTML(order.customerName)}</td><td>${escapeHTML(order.device)}</td><td class="service-order-issue">${escapeHTML(order.issue)}</td><td><strong>${money(order.estimate)}</strong></td><td>${escapeHTML(formatDate(order.createdAt))}</td><td><select class="service-order-status ${statusClass}" data-service-order-status="${escapeHTML(order.id)}" aria-label="Status da ordem OS-${String(order.number).padStart(4, "0")}">${SERVICE_ORDER_STATUSES.map((status) => `<option value="${status}"${status === order.status ? " selected" : ""}>${status}</option>`).join("")}</select></td><td><button class="table-action" data-view-service-order="${escapeHTML(order.id)}" aria-label="Ver detalhes da ordem OS-${String(order.number).padStart(4, "0")}">⌕</button><button class="table-action" data-share-service-order="${escapeHTML(order.id)}" aria-label="Compartilhar ordem OS-${String(order.number).padStart(4, "0")}" title="Compartilhar ordem">↗</button></td></tr>`;
+    const statusLocked = order.status === "Entregue" || Boolean(order.saleId);
+    return `<tr><td><button type="button" class="service-order-open-button" data-view-service-order="${escapeHTML(order.id)}" aria-label="Abrir ordem OS-${String(order.number).padStart(4, "0")}">OS-${String(order.number).padStart(4, "0")}</button></td><td>${escapeHTML(order.customerName)}</td><td>${escapeHTML(order.device)}</td><td class="service-order-issue">${escapeHTML(order.issue)}</td><td><strong>${money(order.estimate)}</strong></td><td>${escapeHTML(formatDate(order.createdAt))}</td><td><select class="service-order-status ${statusClass}" data-service-order-status="${escapeHTML(order.id)}" aria-label="Status da ordem OS-${String(order.number).padStart(4, "0")}"${statusLocked ? " disabled" : ""}>${SERVICE_ORDER_STATUSES.map((status) => `<option value="${status}"${status === order.status ? " selected" : ""}>${status}</option>`).join("")}</select></td><td><button class="table-action" data-view-service-order="${escapeHTML(order.id)}" aria-label="Ver detalhes da ordem OS-${String(order.number).padStart(4, "0")}">⌕</button><button class="table-action" data-share-service-order="${escapeHTML(order.id)}" aria-label="Compartilhar ordem OS-${String(order.number).padStart(4, "0")}" title="Compartilhar ordem">↗</button></td></tr>`;
   }).join("") : `<tr><td colspan="8"><div class="empty-state"><strong>${state.serviceOrders.length ? "Nenhuma ordem encontrada" : "Nenhuma ordem de serviço cadastrada"}</strong>${state.serviceOrders.length ? "Experimente ajustar a busca ou os filtros." : "Crie uma ordem para começar a acompanhar os reparos."}</div></td></tr>`;
 }
 function updateServiceOrderPasswordFields() {
@@ -575,6 +599,8 @@ function openServiceOrderModal() {
   select.innerHTML = `<option value="">Consumidor final</option>${state.customers.map((customer) => `<option value="${escapeHTML(customer.id)}">${escapeHTML(customer.name)}</option>`).join("")}`;
   document.getElementById("service-order-customer-options").innerHTML = state.customers.map((customer) => `<option value="${escapeHTML(customer.name)}"></option>`).join("");
   document.getElementById("service-order-form").reset();
+  setMoneyInput(document.getElementById("service-order-labor"), 0);
+  setMoneyInput(document.getElementById("service-order-parts-total"), 0);
   clearServiceOrderPattern();
   updateServiceOrderPasswordFields();
   const now = new Date();
@@ -589,14 +615,48 @@ function openServiceOrderModal() {
   document.getElementById("service-order-modal").showModal();
 }
 function updateServiceOrderTotal() {
-  const labor = Number(document.getElementById("service-order-labor").value) || 0;
-  const parts = Number(document.getElementById("service-order-parts-total").value) || 0;
-  document.getElementById("service-order-estimate").value = (labor + parts).toFixed(2);
+  const labor = parseMoneyInput(document.getElementById("service-order-labor"));
+  const parts = parseMoneyInput(document.getElementById("service-order-parts-total"));
+  setMoneyInput(document.getElementById("service-order-estimate"), labor + parts);
+}
+function createServiceOrderSale(order) {
+  const existingSale = state.sales.find((sale) => sale.serviceOrderId === order.id);
+  if (existingSale) {
+    order.saleId = existingSale.id;
+    order.saleNumber = existingSale.number;
+    return existingSale;
+  }
+  const number = state.nextSaleNumber++;
+  const orderNumber = `OS-${String(order.number).padStart(4, "0")}`;
+  const total = Number(order.estimate) || 0;
+  const sale = {
+    id: makeId(),
+    number,
+    serviceOrderId: order.id,
+    customerId: order.customerId || null,
+    customerName: order.customerName || "Consumidor final",
+    date: new Date().toISOString(),
+    payment: order.payment || "A combinar",
+    subtotal: total,
+    discount: 0,
+    total,
+    items: [{
+      productId: `service-order:${order.id}`,
+      name: `Serviço ${orderNumber} - ${order.device || order.issue}`,
+      quantity: 1,
+      price: total,
+    }],
+  };
+  order.saleId = sale.id;
+  order.saleNumber = sale.number;
+  order.saleDate = sale.date;
+  state.sales.unshift(sale);
+  return sale;
 }
 function saveServiceOrder(event) {
   event.preventDefault();
-  const labor = Number(document.getElementById("service-order-labor").value);
-  const partsTotal = Number(document.getElementById("service-order-parts-total").value);
+  const labor = parseMoneyInput(document.getElementById("service-order-labor"));
+  const partsTotal = parseMoneyInput(document.getElementById("service-order-parts-total"));
   const estimate = labor + partsTotal;
   if (!Number.isFinite(labor) || labor < 0 || !Number.isFinite(partsTotal) || partsTotal < 0 || !Number.isFinite(estimate)) return toast("Informe valores válidos para mão de obra e peças.", "error");
   const customerId = document.getElementById("service-order-customer").value;
@@ -652,11 +712,12 @@ function saveServiceOrder(event) {
     technicianSignature: document.getElementById("service-order-signature-technician").value.trim(),
     createdAt: dateKey(openedAt),
   };
+  const sale = order.status === "Entregue" ? createServiceOrderSale(order) : null;
   state.serviceOrders.unshift(order);
   saveState();
   document.getElementById("service-order-modal").close();
   renderServiceOrders();
-  toast(`Ordem OS-${String(order.number).padStart(4, "0")} criada com sucesso.`);
+  toast(sale ? `Ordem OS-${String(order.number).padStart(4, "0")} criada e venda #${sale.number} registrada.` : `Ordem OS-${String(order.number).padStart(4, "0")} criada com sucesso.`);
 }
 function openServiceOrderDetails(id) {
   const order = state.serviceOrders.find((item) => item.id === id);
@@ -1049,12 +1110,13 @@ function exportReport() {
 function clearCurrentSale(resetCustomer = false) {
   cart = [];
   receivedAmount = null;
-  document.getElementById("discount-input").value = "0";
+  setMoneyInput(document.getElementById("discount-input"), 0);
   if (resetCustomer) document.getElementById("sale-customer").value = "";
   document.getElementById("payment-method").value = "Dinheiro";
   document.querySelectorAll("[data-sale-payment]").forEach((button) => button.classList.toggle("active", button.dataset.salePayment === "Dinheiro"));
   renderSales();
 }
+initializeMoneyInputs();
 document.addEventListener("click", (event) => {
   const target = event.target.closest("button");
   if (!target) {
@@ -1100,6 +1162,10 @@ document.addEventListener("click", (event) => {
     } else toast("Nenhum produto encontrado.", "error");
   }
   if (target.id === "add-customer-shortcut") openCustomerModal();
+  if (target.id === "add-custom-service-button") {
+    document.getElementById("custom-service-form").reset();
+    document.getElementById("custom-service-modal").showModal();
+  }
   if (target.id === "new-sale-button-inline") clearCurrentSale(true);
   if (target.id === "cancel-sale-button") {
     if (!cart.length || confirm("Cancelar esta venda e limpar os itens selecionados?")) {
@@ -1196,16 +1262,22 @@ document.getElementById("service-orders-body").addEventListener("change", (event
   if (!select) return;
   const order = state.serviceOrders.find((item) => item.id === select.dataset.serviceOrderStatus);
   if (!order || !SERVICE_ORDER_STATUSES.includes(select.value)) return toast("Não foi possível atualizar o status desta ordem.", "error");
+  if (order.status === "Entregue" || order.saleId) {
+    select.value = order.status;
+    renderServiceOrders();
+    return toast("Esta ordem já foi entregue e vinculada a uma venda; o status não pode mais ser alterado.", "error");
+  }
   order.status = select.value;
+  const sale = order.status === "Entregue" ? createServiceOrderSale(order) : null;
   saveState();
   renderServiceOrders();
-  toast("Status da ordem atualizado.");
+  toast(sale ? `OS-${String(order.number).padStart(4, "0")} entregue. Venda #${sale.number} registrada.` : "Status da ordem atualizado.");
 });
 document.getElementById("chart-period").addEventListener("change", renderChart);
 document.getElementById("report-period").addEventListener("change", renderReports);
 document.getElementById("discount-input").addEventListener("input", renderCart);
 document.getElementById("payment-received").addEventListener("input", (event) => {
-  receivedAmount = Math.max(0, Number(event.target.value) || 0);
+  receivedAmount = parseMoneyInput(event.target);
   renderCart();
 });
 document.getElementById("sale-customer").addEventListener("change", (event) => {
@@ -1224,6 +1296,7 @@ document.getElementById("sidebar-toggle").addEventListener("click", (event) => {
   event.currentTarget.title = collapsed ? "Expandir menu lateral" : "Recolher menu lateral";
 });
 document.getElementById("product-form").addEventListener("submit", saveProduct);
+document.getElementById("custom-service-form").addEventListener("submit", addCustomService);
 document.getElementById("product-kind").addEventListener("change", updateProductKindFields);
 document.getElementById("product-image-file").addEventListener("change", (event) => {
   const input = event.currentTarget;
@@ -1289,47 +1362,26 @@ document.querySelectorAll(".notification-button").forEach((button) => button.add
 document.querySelectorAll(".modal").forEach((dialog) => dialog.addEventListener("click", (event) => {
   if (event.target === dialog) dialog.close();
 }));
-async function loadWorkspace() {
-  const { data: row, error } = await supabaseClient
-    .from("pdv_data")
-    .select("data,version")
-    .eq("id", DATABASE_ROW_ID)
-    .maybeSingle();
-  if (error) throw error;
-
-  if (row) {
-    if (!row.data || !Array.isArray(row.data.products) || !Array.isArray(row.data.customers) || !Array.isArray(row.data.sales)) {
-      throw new Error("Os dados salvos no banco estão incompletos.");
+function initializeWorkspace() {
+  try {
+    const savedState = localStorage.getItem(STORAGE_KEY);
+    if (savedState) {
+      const parsedState = JSON.parse(savedState);
+      if (!parsedState || !Array.isArray(parsedState.products) || !Array.isArray(parsedState.customers) || !Array.isArray(parsedState.sales)) {
+        throw new Error("Os dados locais salvos estão incompletos.");
+      }
+      state = {
+        ...seedData(),
+        ...parsedState,
+        serviceOrders: Array.isArray(parsedState.serviceOrders) ? parsedState.serviceOrders : [],
+      };
+      state.nextServiceOrderNumber = Number(state.nextServiceOrderNumber) || Math.max(0, ...state.serviceOrders.map((order) => Number(order.number) || 0)) + 1;
+      state.nextSaleNumber = Number(state.nextSaleNumber) || Math.max(0, ...state.sales.map((sale) => Number(sale.number) || 0)) + 1;
     }
-    state = row.data;
-    if (!Array.isArray(state.serviceOrders)) state.serviceOrders = [];
-    state.nextServiceOrderNumber = Number(state.nextServiceOrderNumber) || Math.max(0, ...state.serviceOrders.map((order) => Number(order.number) || 0)) + 1;
-    state.nextSaleNumber = Number(state.nextSaleNumber) || Math.max(1042, ...state.sales.map((sale) => Number(sale.number) || 0)) + 1;
-    databaseVersion = row.version;
-  } else {
-    const { error: insertError } = await supabaseClient
-      .from("pdv_data")
-      .upsert({ id: DATABASE_ROW_ID, data: seedData(), version: 1 }, { onConflict: "id", ignoreDuplicates: true });
-    if (insertError) throw insertError;
-    const { data: createdRow, error: reloadError } = await supabaseClient
-      .from("pdv_data")
-      .select("data,version")
-      .eq("id", DATABASE_ROW_ID)
-      .single();
-    if (reloadError) throw reloadError;
-    if (!createdRow.data || !Array.isArray(createdRow.data.products) || !Array.isArray(createdRow.data.customers) || !Array.isArray(createdRow.data.sales)) {
-      throw new Error("Os dados iniciais do banco estão incompletos.");
-    }
-    state = createdRow.data;
-    if (!Array.isArray(state.serviceOrders)) state.serviceOrders = [];
-    state.nextServiceOrderNumber = Number(state.nextServiceOrderNumber) || 1;
-    state.nextSaleNumber = Number(state.nextSaleNumber) || 1;
-    databaseVersion = createdRow.version;
+  } catch (error) {
+    console.error("Não foi possível carregar os dados salvos neste navegador:", error);
+    toast("Não foi possível carregar os dados salvos. Verifique o armazenamento do navegador.", "error");
   }
-
-  databaseWriteBlocked = false;
-  document.querySelector(".app-shell").hidden = false;
-  document.body.classList.add("is-authenticated");
   renderDashboard();
 }
 
@@ -1339,12 +1391,21 @@ function showLoginError(message) {
   error.hidden = false;
 }
 
+function displayUserWorkspace(user) {
+  const metadataName = user.user_metadata?.full_name || user.user_metadata?.name;
+  currentUserName = String(metadataName || user.email?.split("@")[0] || "Usuário").trim();
+  document.getElementById("sales-seller-name").textContent = currentUserName.toLocaleUpperCase("pt-BR");
+  document.getElementById("login-screen").hidden = true;
+  document.querySelector(".app-shell").hidden = false;
+  initializeWorkspace();
+  setTodayLabel();
+}
+
 async function initializeAuthentication() {
   const config = globalThis.ZOOMTECH_SUPABASE_CONFIG;
   if (!config?.url || !config?.anonKey || !globalThis.supabase?.createClient) {
+    showLoginError("Configure a URL do projeto e a chave pública em supabase-config.js para habilitar o login.");
     document.getElementById("login-submit").disabled = true;
-    document.getElementById("login-error").textContent = "Configure as variáveis do Supabase seguindo o guia de instalação antes de entrar.";
-    document.getElementById("login-error").hidden = false;
     return;
   }
 
@@ -1356,28 +1417,28 @@ async function initializeAuthentication() {
     });
   } catch (error) {
     console.error("Configuração do Supabase inválida:", error);
+    showLoginError("A configuração de autenticação é inválida. Confira supabase-config.js.");
     document.getElementById("login-submit").disabled = true;
-    showLoginError("A configuração do banco é inválida. Confira o guia de instalação.");
     return;
   }
+
   supabaseClient.auth.onAuthStateChange((event) => {
     if (event === "SIGNED_OUT") {
       clearTimeout(saveTimer);
+      currentUserName = "";
       document.querySelector(".app-shell").hidden = true;
-      document.body.classList.remove("is-authenticated");
-      state = seedData();
-      databaseVersion = null;
-      databaseWriteBlocked = false;
+      document.getElementById("login-screen").hidden = false;
+      document.getElementById("login-password").value = "";
     }
   });
 
   try {
     const { data, error } = await supabaseClient.auth.getSession();
     if (error) throw error;
-    if (data.session) await loadWorkspace();
+    if (data.session?.user) displayUserWorkspace(data.session.user);
   } catch (error) {
-    console.error("Não foi possível restaurar a sessão ou carregar os dados:", error);
-    showLoginError("Não foi possível conectar ao banco. Confira a configuração e tente novamente.");
+    console.error("Não foi possível restaurar a sessão:", error);
+    showLoginError("Não foi possível verificar a sessão. Confira sua conexão e tente novamente.");
   }
 }
 
@@ -1389,45 +1450,38 @@ document.getElementById("login-form").addEventListener("submit", async (event) =
   button.disabled = true;
   document.getElementById("login-error").hidden = true;
   try {
-    const { error } = await supabaseClient.auth.signInWithPassword({
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
       email: document.getElementById("login-email").value.trim(),
       password: document.getElementById("login-password").value,
     });
     if (error) throw error;
-    await loadWorkspace();
+    if (!data.user) throw new Error("A autenticação não retornou um usuário.");
+    displayUserWorkspace(data.user);
     document.getElementById("login-password").value = "";
   } catch (error) {
-    console.error("Falha na autenticação ou no carregamento do banco:", error);
+    console.error("Falha na autenticação:", error);
     showLoginError(error.message === "Invalid login credentials"
       ? "E-mail ou senha incorretos."
-      : "Não foi possível entrar ou carregar os dados. Confira a conexão e tente novamente.");
-    const { error: signOutError } = await supabaseClient.auth.signOut();
-    if (signOutError) console.error("Não foi possível encerrar a sessão após a falha:", signOutError);
+      : "Não foi possível entrar. Verifique seus dados e tente novamente.");
   } finally {
     button.disabled = false;
   }
 });
-document.getElementById("password-toggle").addEventListener("click", (event) => {
-  const password = document.getElementById("login-password");
-  const button = event.currentTarget;
-  const isVisible = password.type === "text";
-  password.type = isVisible ? "password" : "text";
-  button.setAttribute("aria-pressed", String(!isVisible));
-  button.setAttribute("aria-label", isVisible ? "Mostrar senha" : "Ocultar senha");
-});
+
 document.getElementById("logout-button").addEventListener("click", async () => {
-  await flushStateSave();
+  flushStateSave();
   try {
     const { error } = await supabaseClient.auth.signOut();
     if (error) throw error;
-    window.location.reload();
   } catch (error) {
     console.error("Não foi possível encerrar a sessão:", error);
     toast("Não foi possível sair. Tente novamente.", "error");
   }
 });
+
+window.addEventListener("pagehide", flushStateSave);
 setTodayLabel();
+setInterval(setTodayLabel, 60000);
 renderSalesHeader();
 setInterval(renderSalesHeader, 1000);
-renderDashboard();
 initializeAuthentication();
