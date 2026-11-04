@@ -40,5 +40,5 @@ if (jwtPayload) {
 
 const config = JSON.stringify({ url: parsedUrl.origin, anonKey: publicKey });
 const destination = path.join(__dirname, "..", "supabase-config.js");
-fs.writeFileSync(destination, `globalThis.ZOOMTECH_SUPABASE_CONFIG = ${config};\\n`, "utf8");
+fs.writeFileSync(destination, \`globalThis.ZOOMTECH_SUPABASE_CONFIG = \${config};\n\`, "utf8");
 console.log("Configuração pública do Supabase gerada para Cloudflare Pages.");
