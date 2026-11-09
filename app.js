@@ -53,6 +53,26 @@ const formatCpf = (value) => {
     .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
     .replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d{1,2})$/, "$1.$2.$3-$4");
 };
+const formatPhone = (value) => {
+  const digits = String(value ?? "").replace(/\D/g, "").slice(0, 11);
+  if (!digits) return "";
+  const areaCode = digits.slice(0, 2);
+  if (digits.length <= 2) return `(${areaCode}${digits.length === 2 ? ")" : ""}`;
+  const number = digits.slice(2);
+  return `(${areaCode}) ${number.length <= 5 ? number : `${number.slice(0, 5)}-${number.slice(5)}`}`;
+};
+function formatPhoneInput(event) {
+  const input = event.currentTarget;
+  const digitsBeforeCursor = input.value.slice(0, input.selectionStart).replace(/\D/g, "").length;
+  input.value = formatPhone(input.value);
+  let cursor = 0;
+  let digitsPassed = 0;
+  while (cursor < input.value.length && digitsPassed < digitsBeforeCursor) {
+    if (/\d/.test(input.value[cursor])) digitsPassed += 1;
+    cursor += 1;
+  }
+  input.setSelectionRange(cursor, cursor);
+}
 const initials = (name) => String(name || "CF").trim().split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase();
 const formatDate = (date) => new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(`${date}T12:00:00`)).replace(".", "");
 const seedData = () => {
@@ -588,8 +608,8 @@ function fillServiceOrderCustomer(customer) {
   document.getElementById("service-order-customer").value = customer?.id || "";
   document.getElementById("service-order-customer-name").value = customer?.name || "";
   document.getElementById("service-order-document").value = customer?.document || "";
-  document.getElementById("service-order-phone").value = customer?.phone || "";
-  document.getElementById("service-order-secondary-phone").value = customer?.secondaryPhone || "";
+  document.getElementById("service-order-phone").value = formatPhone(customer?.phone);
+  document.getElementById("service-order-secondary-phone").value = formatPhone(customer?.secondaryPhone);
   document.getElementById("service-order-email").value = customer?.email || "";
   document.getElementById("service-order-address").value = address;
 }
@@ -945,7 +965,7 @@ function openCustomerModal(id = "") {
   document.getElementById("customer-modal-title").textContent = customer ? "Editar cliente" : "Novo cliente";
   document.getElementById("customer-name").value = customer?.name || "";
   document.getElementById("customer-email").value = customer?.email || "";
-  document.getElementById("customer-phone").value = customer?.phone || "";
+  document.getElementById("customer-phone").value = formatPhone(customer?.phone);
   document.getElementById("customer-zip-code").value = customer?.zipCode || "";
   document.getElementById("customer-street").value = customer?.street || customer?.address || "";
   document.getElementById("customer-address-number").value = customer?.addressNumber || "";
@@ -1230,6 +1250,7 @@ initializeFilmCompatibilitySearch();
 document.getElementById("film-compatibility-search").addEventListener("input", renderFilmCompatibility);
 document.getElementById("film-compatibility-brand").addEventListener("change", renderFilmCompatibility);
 document.getElementById("customer-search").addEventListener("input", renderCustomers);
+document.querySelectorAll('input[type="tel"]').forEach((input) => input.addEventListener("input", formatPhoneInput));
 document.getElementById("customer-document").addEventListener("input", (event) => {
   event.target.value = formatCpf(event.target.value);
   validateCustomerCpf(event.target);
