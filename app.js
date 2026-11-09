@@ -1,8 +1,8 @@
 "use strict";
 
 const DATABASE_ROW_ID = "main-store";
-const PAYMENT_METHODS = ["Pix", "Cartão de crédito", "Cartão de débito", "Dinheiro", "Boleto"];
-const COLORS = ["#087eff", "#18b8ff", "#67d8ff", "#41e984", "#0758d1"];
+const PAYMENT_METHODS = ["Pix", "Cartão de crédito", "Cartão de débito", "Dinheiro", "Boleto", "A combinar"];
+const COLORS = ["#087eff", "#18b8ff", "#67d8ff", "#41e984", "#0758d1", "#b08cff"];
 const PRODUCT_EMOJIS = ["📱", "🔋", "🔌", "🛠️", "🛡️", "📦", "⚡", "🔧"];
 const SERVICE_ORDER_STATUSES = ["Recebida", "Em análise", "Em diagnóstico", "Aguardando aprovação", "Aprovada", "Aguardando peça", "Em reparo", "Pronta", "Concluída", "Entregue", "Cancelada"];
 const FILM_COMPATIBILITY_ROWS = globalThis.FILM_COMPATIBILITY_DATA;
@@ -46,6 +46,7 @@ const seedData = () => {
 };
 let state = seedData();
 let supabaseClient = null;
+let currentUserFirstName = "";
 let saveTimer = null;
 let saveQueue = Promise.resolve();
 let databaseVersion = null;
@@ -142,6 +143,11 @@ function setTodayLabel() {
   document.getElementById("today-label").textContent = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }).format(today).replace(".", "");
   const date = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long" }).format(today);
   document.querySelector("#page-dashboard .eyebrow").textContent = date.toLocaleUpperCase("pt-BR");
+}
+function updateGreeting() {
+  const hour = new Date().getHours();
+  document.getElementById("greeting").textContent = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+  document.getElementById("greeting-name").textContent = currentUserFirstName;
 }
 function renderDashboard() {
   const todaySales = state.sales.filter((sale) => dateKey(saleDate(sale)) === dateKey(today));
@@ -260,7 +266,7 @@ function addToCart(id) {
 function renderCart() {
   const count = cart.reduce((sum, item) => sum + item.quantity, 0);
   document.getElementById("cart-count").textContent = String(count);
-  const items = cart.map((item) => ({ ...item, product: state.products.find((product) => product.id === item.productId) })).filter((item) => item.product);
+  const items = cart.map((item) => ({ ...item, product: item.isCustom ? item : state.products.find((product) => product.id === item.productId) })).filter((item) => item.product);
   const saleInProgress = items.length > 0;
   document.getElementById("sale-register-status").textContent = saleInProgress ? "Caixa em uso" : "Caixa livre";
   document.getElementById("sale-register-indicator").classList.toggle("is-busy", saleInProgress);
@@ -285,17 +291,17 @@ function renderCart() {
 }
 function updateQuantity(id, amount) {
   const item = cart.find((entry) => entry.productId === id);
-  const product = state.products.find((entry) => entry.id === id);
-  if (!item || !product) return;
+  const product = item?.isCustom ? null : state.products.find((entry) => entry.id === id);
+  if (!item || (!product && !item.isCustom)) return;
   const next = item.quantity + amount;
-  if (product.kind !== "service" && next > product.stock) return toast(`Estoque disponível: ${product.stock} unidade(s).`, "error");
+  if (product && product.kind !== "service" && next > product.stock) return toast(`Estoque disponível: ${product.stock} unidade(s).`, "error");
   if (next <= 0) cart = cart.filter((entry) => entry.productId !== id);
   else item.quantity = next;
   renderCart();
 }
 function finishSale() {
-  const items = cart.map((item) => ({ ...item, product: state.products.find((product) => product.id === item.productId) }));
-  if (!items.length || items.some((item) => !item.product || (item.product.kind !== "service" && item.quantity > item.product.stock))) return toast("Confira os itens e o estoque antes de finalizar.", "error");
+  const items = cart.map((item) => ({ ...item, product: item.isCustom ? item : state.products.find((product) => product.id === item.productId) }));
+  if (!items.length || items.some((item) => !item.product || (!item.isCustom && item.product.kind !== "service" && item.quantity > item.product.stock))) return toast("Confira os itens e o estoque antes de finalizar.", "error");
   const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const discount = Math.min(Math.max(0, Number(document.getElementById("discount-input").value) || 0), subtotal);
   const total = subtotal - discount;
@@ -313,7 +319,7 @@ function finishSale() {
     total,
     items: items.map(({ product, quantity }) => ({ productId: product.id, name: product.name, quantity, price: product.price })),
   };
-  for (const item of items) if (item.product.kind !== "service") item.product.stock -= item.quantity;
+  for (const item of items) if (!item.isCustom && item.product.kind !== "service") item.product.stock -= item.quantity;
   state.sales.unshift(sale);
   saveState();
   cart = [];
@@ -645,6 +651,7 @@ function saveServiceOrder(event) {
     dueDate: document.getElementById("service-order-due-date").value,
     status: document.getElementById("service-order-status-input").value,
     openedAt: openedAt.toISOString(),
+    ...(document.getElementById("service-order-status-input").value === "Entregue" ? { deliveredAt: new Date().toISOString() } : {}),
     authorized: document.getElementById("service-order-authorized").checked,
     abandonedTermsAccepted: document.getElementById("service-order-abandoned-accepted").checked,
     dataTermsAccepted: document.getElementById("service-order-data-accepted").checked,
@@ -653,10 +660,15 @@ function saveServiceOrder(event) {
     createdAt: dateKey(openedAt),
   };
   state.serviceOrders.unshift(order);
+  const saleCreated = order.status === "Entregue" && recordServiceOrderSale(order);
   saveState();
   document.getElementById("service-order-modal").close();
   renderServiceOrders();
-  toast(`Ordem OS-${String(order.number).padStart(4, "0")} criada com sucesso.`);
+  if (saleCreated) {
+    renderDashboard();
+    renderReports();
+    toast(`Ordem OS-${String(order.number).padStart(4, "0")} criada e venda registrada.`);
+  } else toast(`Ordem OS-${String(order.number).padStart(4, "0")} criada com sucesso.`);
 }
 function openServiceOrderDetails(id) {
   const order = state.serviceOrders.find((item) => item.id === id);
@@ -1055,6 +1067,47 @@ function clearCurrentSale(resetCustomer = false) {
   document.querySelectorAll("[data-sale-payment]").forEach((button) => button.classList.toggle("active", button.dataset.salePayment === "Dinheiro"));
   renderSales();
 }
+function openManualSaleItemModal() {
+  document.getElementById("manual-sale-item-form").reset();
+  document.getElementById("manual-sale-item-quantity").value = "1";
+  document.getElementById("manual-sale-item-modal").showModal();
+}
+function addManualSaleItem(event) {
+  event.preventDefault();
+  const name = document.getElementById("manual-sale-item-name").value.trim();
+  const price = Number(document.getElementById("manual-sale-item-price").value);
+  const quantity = Number(document.getElementById("manual-sale-item-quantity").value);
+  if (!name || !Number.isFinite(price) || price <= 0 || !Number.isInteger(quantity) || quantity < 1) {
+    return toast("Informe a descrição, um valor maior que zero e uma quantidade válida.", "error");
+  }
+  const id = makeId();
+  cart.push({ productId: id, id, name, category: "Item avulso", sku: "Avulso", price, quantity, isCustom: true });
+  document.getElementById("manual-sale-item-modal").close();
+  renderCart();
+}
+function recordServiceOrderSale(order) {
+  if (state.sales.some((sale) => sale.serviceOrderId === order.id)) return false;
+  const total = Number(order.estimate);
+  if (!Number.isFinite(total) || total < 0) throw new Error(`O valor da ordem OS-${String(order.number).padStart(4, "0")} é inválido para registrar a venda.`);
+  const saleDateValue = order.deliveredAt || order.openedAt || `${order.createdAt}T12:00:00`;
+  const date = new Date(saleDateValue);
+  if (Number.isNaN(date.getTime())) throw new Error(`A data da ordem OS-${String(order.number).padStart(4, "0")} é inválida para registrar a venda.`);
+  const name = `OS-${String(order.number).padStart(4, "0")} · ${order.device || "Serviço técnico"}`;
+  state.sales.unshift({
+    id: makeId(),
+    number: state.nextSaleNumber++,
+    serviceOrderId: order.id,
+    customerId: order.customerId || null,
+    customerName: order.customerName || "Consumidor final",
+    date: date.toISOString(),
+    payment: PAYMENT_METHODS.includes(order.payment) ? order.payment : "A combinar",
+    subtotal: total,
+    discount: 0,
+    total,
+    items: [{ productId: `service-order-${order.id}`, name, quantity: 1, price: total }],
+  });
+  return true;
+}
 document.addEventListener("click", (event) => {
   const target = event.target.closest("button");
   if (!target) {
@@ -1100,6 +1153,7 @@ document.addEventListener("click", (event) => {
     } else toast("Nenhum produto encontrado.", "error");
   }
   if (target.id === "add-customer-shortcut") openCustomerModal();
+  if (target.id === "add-manual-sale-item") openManualSaleItemModal();
   if (target.id === "new-sale-button-inline") clearCurrentSale(true);
   if (target.id === "cancel-sale-button") {
     if (!cart.length || confirm("Cancelar esta venda e limpar os itens selecionados?")) {
@@ -1197,9 +1251,18 @@ document.getElementById("service-orders-body").addEventListener("change", (event
   const order = state.serviceOrders.find((item) => item.id === select.dataset.serviceOrderStatus);
   if (!order || !SERVICE_ORDER_STATUSES.includes(select.value)) return toast("Não foi possível atualizar o status desta ordem.", "error");
   order.status = select.value;
+  let saleCreated = false;
+  if (order.status === "Entregue") {
+    order.deliveredAt ||= new Date().toISOString();
+    saleCreated = recordServiceOrderSale(order);
+  }
   saveState();
   renderServiceOrders();
-  toast("Status da ordem atualizado.");
+  if (saleCreated) {
+    renderDashboard();
+    renderReports();
+    toast("Status atualizado e venda da ordem registrada.");
+  } else toast("Status da ordem atualizado.");
 });
 document.getElementById("chart-period").addEventListener("change", renderChart);
 document.getElementById("report-period").addEventListener("change", renderReports);
@@ -1213,6 +1276,7 @@ document.getElementById("sale-customer").addEventListener("change", (event) => {
   document.getElementById("selected-customer-name").textContent = customer?.name || "CONSUMIDOR FINAL";
 });
 document.getElementById("checkout-button").addEventListener("click", finishSale);
+document.getElementById("manual-sale-item-form").addEventListener("submit", addManualSaleItem);
 document.getElementById("clear-cart").addEventListener("click", () => { cart = []; receivedAmount = null; renderCart(); });
 document.getElementById("new-sale-button").addEventListener("click", () => { document.getElementById("sale-modal").close(); setPage("sales"); });
 document.getElementById("add-product-button").addEventListener("click", () => openProductModal());
@@ -1290,6 +1354,17 @@ document.querySelectorAll(".modal").forEach((dialog) => dialog.addEventListener(
   if (event.target === dialog) dialog.close();
 }));
 async function loadWorkspace() {
+  const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+  if (userError) throw userError;
+  if (!user) throw new Error("Não foi possível identificar o usuário autenticado.");
+  const profileName = [user.user_metadata?.first_name, user.user_metadata?.given_name, user.user_metadata?.full_name, user.user_metadata?.name]
+    .find((name) => typeof name === "string" && name.trim());
+  const emailName = user.email?.split("@")[0].split(/[._+-]/)[0];
+  const sellerName = (profileName || emailName || "Usuário").trim().split(/\s+/)[0];
+  currentUserFirstName = sellerName;
+  document.getElementById("seller-name").textContent = sellerName;
+  updateGreeting();
+
   const { data: row, error } = await supabaseClient
     .from("pdv_data")
     .select("data,version")
@@ -1328,9 +1403,15 @@ async function loadWorkspace() {
   }
 
   databaseWriteBlocked = false;
+  const deliveredSalesCreated = state.serviceOrders.reduce((count, order) => {
+    if (order.status !== "Entregue") return count;
+    return count + Number(recordServiceOrderSale(order));
+  }, 0);
   document.querySelector(".app-shell").hidden = false;
   document.body.classList.add("is-authenticated");
+  if (deliveredSalesCreated) saveState();
   renderDashboard();
+  if (deliveredSalesCreated) renderReports();
 }
 
 function showLoginError(message) {
@@ -1427,7 +1508,9 @@ document.getElementById("logout-button").addEventListener("click", async () => {
   }
 });
 setTodayLabel();
+updateGreeting();
 renderSalesHeader();
+setInterval(updateGreeting, 60000);
 setInterval(renderSalesHeader, 1000);
 renderDashboard();
 initializeAuthentication();
