@@ -20,6 +20,20 @@ const dateTimeLocalValue = (date) => {
 };
 const makeId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 const money = (value) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+const parseMoney = (value) => {
+  let normalized = String(value ?? "").replace(/[^\d.,]/g, "");
+  if (!normalized) return NaN;
+  const comma = normalized.lastIndexOf(",");
+  const dot = normalized.lastIndexOf(".");
+  if (comma > dot) normalized = normalized.replace(/\./g, "").replace(",", ".");
+  else if (dot > comma && comma !== -1) normalized = normalized.replace(/,/g, "");
+  else if (comma !== -1) normalized = normalized.replace(",", ".");
+  return Number(normalized);
+};
+const readMoneyInput = (id) => {
+  const raw = document.getElementById(id).value.trim();
+  return raw ? parseMoney(raw) : 0;
+};
 const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 const isValidCpf = (value) => {
   const digits = String(value ?? "").replace(/\D/g, "");
@@ -274,7 +288,7 @@ function renderCart() {
   document.getElementById("sale-table-empty").hidden = items.length > 0;
   document.getElementById("cart-items").innerHTML = items.map(({ product, quantity }, index) => `<tr><td>${index + 1}</td><td><strong>${escapeHTML(product.name)}</strong><small>${escapeHTML(product.sku || product.category)}</small></td><td><span class="table-quantity"><button type="button" data-quantity="-1" data-id="${escapeHTML(product.id)}" aria-label="Diminuir quantidade">−</button>${quantity}<button type="button" data-quantity="1" data-id="${escapeHTML(product.id)}" aria-label="Aumentar quantidade">＋</button></span></td><td>${money(product.price)}</td><td>${money(product.price * quantity)}</td><td><button type="button" class="remove-sale-item" data-remove-item="${escapeHTML(product.id)}" aria-label="Remover ${escapeHTML(product.name)}">▤</button></td></tr>`).join("");
   const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const rawDiscount = Number(document.getElementById("discount-input").value);
+  const rawDiscount = parseMoney(document.getElementById("discount-input").value);
   const discount = Number.isFinite(rawDiscount) ? Math.min(Math.max(0, rawDiscount), subtotal) : 0;
   const total = Math.max(0, subtotal - discount);
   const paymentMethod = document.getElementById("payment-method").value;
@@ -284,7 +298,7 @@ function renderCart() {
   document.getElementById("cart-total").textContent = money(total);
   document.getElementById("payment-change").textContent = money(Math.max(0, paid - total));
   const paidInput = document.getElementById("payment-received");
-  if (document.activeElement !== paidInput) paidInput.value = paid.toFixed(2);
+  if (document.activeElement !== paidInput) paidInput.value = money(paid);
   paidInput.disabled = paymentMethod !== "Dinheiro";
   document.getElementById("checkout-button").disabled = items.length === 0 || (paymentMethod === "Dinheiro" && paid < total);
   document.getElementById("checkout-button").title = items.length && paymentMethod === "Dinheiro" && paid < total ? "O valor recebido precisa cobrir o total da venda." : "";
@@ -303,7 +317,9 @@ function finishSale() {
   const items = cart.map((item) => ({ ...item, product: item.isCustom ? item : state.products.find((product) => product.id === item.productId) }));
   if (!items.length || items.some((item) => !item.product || (!item.isCustom && item.product.kind !== "service" && item.quantity > item.product.stock))) return toast("Confira os itens e o estoque antes de finalizar.", "error");
   const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const discount = Math.min(Math.max(0, Number(document.getElementById("discount-input").value) || 0), subtotal);
+  const parsedDiscount = readMoneyInput("discount-input");
+  if (!Number.isFinite(parsedDiscount)) return toast("Informe um desconto válido.", "error");
+  const discount = Math.min(Math.max(0, parsedDiscount), subtotal);
   const total = subtotal - discount;
   if (document.getElementById("payment-method").value === "Dinheiro" && (receivedAmount ?? total) < total) return toast("O valor recebido é menor que o total da venda.", "error");
   const customer = state.customers.find((item) => item.id === document.getElementById("sale-customer").value);
@@ -324,7 +340,7 @@ function finishSale() {
   saveState();
   cart = [];
   receivedAmount = null;
-  document.getElementById("discount-input").value = "0";
+  document.getElementById("discount-input").value = money(0);
   document.getElementById("sale-customer").value = "";
   document.getElementById("sale-confirmation-text").textContent = `Pedido #${sale.number} registrado em ${money(sale.total)}.`;
   document.getElementById("sale-receipt").textContent = `${sale.items.reduce((sum, item) => sum + item.quantity, 0)} itens · ${sale.payment} · ${sale.customerName}`;
@@ -408,8 +424,8 @@ function openProductModal(id = "") {
   document.getElementById("product-name").value = product?.name || "";
   document.getElementById("product-category").value = product?.category || "";
   document.getElementById("product-sku").value = product?.sku || "";
-  document.getElementById("product-price").value = product?.price ?? "";
-  document.getElementById("product-cost").value = product?.cost ?? 0;
+  document.getElementById("product-price").value = product ? money(product.price) : "";
+  document.getElementById("product-cost").value = money(product?.cost ?? 0);
   document.getElementById("product-stock").value = product?.stock ?? 0;
   document.getElementById("product-image-file").value = "";
   document.getElementById("product-image-data").value = product?.image || "";
@@ -472,14 +488,15 @@ async function saveProduct(event) {
   const id = document.getElementById("product-id").value;
   const sku = document.getElementById("product-sku").value.trim();
   const kind = document.getElementById("product-kind").value;
-  const price = Number(document.getElementById("product-price").value);
+  const price = parseMoney(document.getElementById("product-price").value);
+  const cost = kind === "service" ? 0 : readMoneyInput("product-cost");
   const stock = kind === "service" ? 0 : Number(document.getElementById("product-stock").value);
-  if (!Number.isFinite(price) || price <= 0 || (kind !== "service" && (!Number.isInteger(stock) || stock < 0))) return toast("Informe um preço e um estoque válidos.", "error");
+  if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(cost) || cost < 0 || (kind !== "service" && (!Number.isInteger(stock) || stock < 0))) return toast("Informe preços e estoque válidos.", "error");
   if (sku && state.products.some((product) => String(product.sku || "").toLocaleLowerCase("pt-BR") === sku.toLocaleLowerCase("pt-BR") && product.id !== id)) return toast("Já existe um item com este código.", "error");
   const existing = state.products.find((product) => product.id === id);
   await productImagePromise;
   const image = document.getElementById("product-image-data").value;
-  const item = { id: id || makeId(), name: document.getElementById("product-name").value.trim(), category: document.getElementById("product-category").value.trim(), sku, price, cost: kind === "service" ? 0 : Number(document.getElementById("product-cost").value) || 0, stock, emoji: existing?.emoji || PRODUCT_EMOJIS[state.products.length % PRODUCT_EMOJIS.length], image, kind };
+  const item = { id: id || makeId(), name: document.getElementById("product-name").value.trim(), category: document.getElementById("product-category").value.trim(), sku, price, cost, stock, emoji: existing?.emoji || PRODUCT_EMOJIS[state.products.length % PRODUCT_EMOJIS.length], image, kind };
   if (existing) Object.assign(existing, item);
   else state.products.unshift(item);
   saveState();
@@ -595,14 +612,14 @@ function openServiceOrderModal() {
   document.getElementById("service-order-modal").showModal();
 }
 function updateServiceOrderTotal() {
-  const labor = Number(document.getElementById("service-order-labor").value) || 0;
-  const parts = Number(document.getElementById("service-order-parts-total").value) || 0;
-  document.getElementById("service-order-estimate").value = (labor + parts).toFixed(2);
+  const labor = readMoneyInput("service-order-labor");
+  const parts = readMoneyInput("service-order-parts-total");
+  document.getElementById("service-order-estimate").value = money((Number.isFinite(labor) ? labor : 0) + (Number.isFinite(parts) ? parts : 0));
 }
 function saveServiceOrder(event) {
   event.preventDefault();
-  const labor = Number(document.getElementById("service-order-labor").value);
-  const partsTotal = Number(document.getElementById("service-order-parts-total").value);
+  const labor = readMoneyInput("service-order-labor");
+  const partsTotal = readMoneyInput("service-order-parts-total");
   const estimate = labor + partsTotal;
   if (!Number.isFinite(labor) || labor < 0 || !Number.isFinite(partsTotal) || partsTotal < 0 || !Number.isFinite(estimate)) return toast("Informe valores válidos para mão de obra e peças.", "error");
   const customerId = document.getElementById("service-order-customer").value;
@@ -1061,7 +1078,7 @@ function exportReport() {
 function clearCurrentSale(resetCustomer = false) {
   cart = [];
   receivedAmount = null;
-  document.getElementById("discount-input").value = "0";
+  document.getElementById("discount-input").value = money(0);
   if (resetCustomer) document.getElementById("sale-customer").value = "";
   document.getElementById("payment-method").value = "Dinheiro";
   document.querySelectorAll("[data-sale-payment]").forEach((button) => button.classList.toggle("active", button.dataset.salePayment === "Dinheiro"));
@@ -1075,7 +1092,7 @@ function openManualSaleItemModal() {
 function addManualSaleItem(event) {
   event.preventDefault();
   const name = document.getElementById("manual-sale-item-name").value.trim();
-  const price = Number(document.getElementById("manual-sale-item-price").value);
+  const price = parseMoney(document.getElementById("manual-sale-item-price").value);
   const quantity = Number(document.getElementById("manual-sale-item-quantity").value);
   if (!name || !Number.isFinite(price) || price <= 0 || !Number.isInteger(quantity) || quantity < 1) {
     return toast("Informe a descrição, um valor maior que zero e uma quantidade válida.", "error");
@@ -1245,6 +1262,23 @@ document.getElementById("service-order-customer-name").addEventListener("input",
   }
 });
 document.querySelectorAll(".service-order-amount").forEach((input) => input.addEventListener("input", updateServiceOrderTotal));
+document.querySelectorAll("[data-money-input]").forEach((input) => {
+  input.addEventListener("focus", (event) => {
+    if (parseMoney(event.currentTarget.value) === 0) event.currentTarget.value = "";
+    else event.currentTarget.select();
+  });
+  input.addEventListener("input", (event) => {
+    event.currentTarget.value = event.currentTarget.value.replace(/[^\d.,]/g, "");
+  });
+  input.addEventListener("blur", (event) => {
+    if (!event.currentTarget.value.trim() && parseMoney(event.currentTarget.defaultValue) === 0) {
+      event.currentTarget.value = money(0);
+      return;
+    }
+    const value = parseMoney(event.currentTarget.value);
+    if (Number.isFinite(value)) event.currentTarget.value = money(value);
+  });
+});
 document.getElementById("service-orders-body").addEventListener("change", (event) => {
   const select = event.target.closest("[data-service-order-status]");
   if (!select) return;
@@ -1268,7 +1302,8 @@ document.getElementById("chart-period").addEventListener("change", renderChart);
 document.getElementById("report-period").addEventListener("change", renderReports);
 document.getElementById("discount-input").addEventListener("input", renderCart);
 document.getElementById("payment-received").addEventListener("input", (event) => {
-  receivedAmount = Math.max(0, Number(event.target.value) || 0);
+  const value = parseMoney(event.target.value);
+  receivedAmount = Math.max(0, Number.isFinite(value) ? value : 0);
   renderCart();
 });
 document.getElementById("sale-customer").addEventListener("change", (event) => {
