@@ -412,8 +412,19 @@ function renderPhoneDeals() {
       <td>${escapeHTML(formatDate(item.dealDate || new Date().toISOString().slice(0,10)))}</td>
       <td><strong>${phoneDealMoney(price)}</strong></td>
       <td>${(item.photos || []).length} foto(s)</td>
-      <td><div class="phone-deal-row-actions"><button class="button button-secondary phone-deal-document-open" type="button" data-view-phone-deal="${escapeHTML(item.id)}">Documento</button><button class="button button-secondary phone-deal-share" type="button" data-share-phone-deal="${escapeHTML(item.id)}">WhatsApp ↗</button></div></td></tr>`;
+      <td><div class="phone-deal-row-actions"><button class="button button-secondary phone-deal-document-open" type="button" data-view-phone-deal="${escapeHTML(item.id)}">Documento</button><button class="button button-secondary phone-deal-share" type="button" data-share-phone-deal="${escapeHTML(item.id)}">WhatsApp ↗</button><button class="button phone-deal-delete" type="button" data-delete-phone-deal="${escapeHTML(item.id)}" aria-label="Excluir documento de ${escapeHTML(item.direction.toLocaleLowerCase("pt-BR"))}">Excluir</button></div></td></tr>`;
   }).join("");
+}
+function deletePhoneDeal(id) {
+  const item = (state.phoneDeals || []).find((deal) => deal.id === id);
+  if (!item) return toast("Não foi possível localizar esta negociação.", "error");
+  if (!confirm(`Excluir o documento de ${item.direction.toLocaleLowerCase("pt-BR")} do ${item.brand} ${item.model}? Esta ação não poderá ser desfeita.`)) return;
+  state.phoneDeals = state.phoneDeals.filter((deal) => deal.id !== id);
+  saveState();
+  renderPhoneDeals();
+  const documentModal = document.getElementById("phone-deal-document-modal");
+  if (documentModal.open) documentModal.close();
+  toast("Documento excluído do histórico.");
 }
 function updatePhoneDealCustomerRole() {
   const direction = document.querySelector('#phone-deal-form input[name="dealDirection"]:checked')?.value || "Compra";
@@ -1450,6 +1461,7 @@ document.addEventListener("click", (event) => {
   if (target.dataset.viewPhoneDeal) openPhoneDealDocument(target.dataset.viewPhoneDeal);
   if (target.dataset.printPhoneDeal) printPhoneDealDocument(target.dataset.printPhoneDeal);
   if (target.dataset.sharePhoneDeal) void sharePhoneDeal(target.dataset.sharePhoneDeal);
+  if (target.dataset.deletePhoneDeal) deletePhoneDeal(target.dataset.deletePhoneDeal);
   if (target.dataset.close) document.getElementById(target.dataset.close).close();
 });
 
