@@ -58,6 +58,7 @@
         <button class="nav-link active" data-page="dashboard"><span class="nav-icon">◫</span><span class="nav-label">Visão geral</span></button>
         <button class="nav-link" data-page="sales"><span class="nav-icon">▣</span><span class="nav-label">Vendas</span><span class="nav-badge" id="cart-count">0</span></button>
         <button class="nav-link" data-page="service-orders"><span class="nav-icon">🛠</span><span class="nav-label">Ordem de Serviço</span></button>
+        <button class="nav-link" data-page="phone-deals"><span class="nav-icon">📱</span><span class="nav-label">Compra e Venda</span></button>
         <button class="nav-link" data-page="products"><span class="nav-icon">▤</span><span class="nav-label">Estoque</span></button>
         <button class="nav-link" data-page="film-compatibility"><span class="nav-icon">▦</span><span class="nav-label">Compatibilidade de películas</span></button>
         <button class="nav-link" data-page="customers"><span class="nav-icon">♙</span><span class="nav-label">Clientes</span></button>
@@ -166,6 +167,69 @@
           </article>
         </section>
 
+
+        <section class="page" id="page-phone-deals">
+          <div class="page-heading heading-with-action">
+            <div><p class="eyebrow">NEGOCIAÇÃO DE APARELHOS</p><h1>Compra e Venda de celulares</h1><p class="heading-subtitle">Registre a procedência, identificação, estado e valores de cada aparelho.</p></div>
+            <button class="button button-primary" id="phone-deal-new"><span>＋</span> Nova negociação</button>
+          </div>
+          <div class="stats-grid compact-stats phone-deal-stats">
+            <article class="stat-card"><div class="stat-top"><span>Compras registradas</span><span class="stat-icon purple">↓</span></div><strong class="stat-value" id="phone-deal-buy-total">R$ 0,00</strong><div class="stat-foot" id="phone-deal-buy-count">0 aparelhos</div></article>
+            <article class="stat-card"><div class="stat-top"><span>Vendas registradas</span><span class="stat-icon green">↑</span></div><strong class="stat-value" id="phone-deal-sell-total">R$ 0,00</strong><div class="stat-foot" id="phone-deal-sell-count">0 aparelhos</div></article>
+            <article class="stat-card"><div class="stat-top"><span>Negociações</span><span class="stat-icon orange">📱</span></div><strong class="stat-value" id="phone-deal-count">0</strong><div class="stat-foot">Histórico de aparelhos</div></article>
+          </div>
+          <article class="panel phone-deal-form-panel" id="phone-deal-form-panel" hidden>
+            <div class="panel-heading"><div><h2 id="phone-deal-form-title">Nova negociação</h2><p>Os campos com * são obrigatórios.</p></div><button class="button button-secondary" id="phone-deal-cancel">Fechar</button></div>
+            <form id="phone-deal-form">
+              <div class="phone-deal-type"><label><input type="radio" name="dealDirection" value="Compra" checked> <span>Comprar celular</span></label><label><input type="radio" name="dealDirection" value="Venda"> <span>Vender celular</span></label></div>
+              <h3>Identificação do aparelho</h3>
+              <div class="phone-deal-fields">
+                <label>Marca *<input name="brand" required maxlength="80" placeholder="Ex.: Samsung"></label>
+                <label>Modelo *<input name="model" required maxlength="120" placeholder="Ex.: Galaxy A54"></label>
+                <label>Cor<input name="color" maxlength="60" placeholder="Cor do aparelho"></label>
+                <label>Armazenamento<input name="storage" maxlength="40" placeholder="128 GB, 256 GB..."></label>
+                <label>IMEI 1<input name="imei1" maxlength="30" placeholder="Identificação IMEI"></label>
+                <label>IMEI 2<input name="imei2" maxlength="30" placeholder="Segundo IMEI, se houver"></label>
+                <label>Número de série<input name="serialNumber" maxlength="80" placeholder="Serial do aparelho"></label>
+                <label>Estado do aparelho<select name="deviceCondition"><option>Usado</option><option>Seminovo</option><option>Novo</option><option>Para conserto</option></select></label>
+                <label>Saúde da bateria (%)<input name="batteryHealth" inputmode="decimal" maxlength="4" placeholder="Ex.: 88%"></label>
+                <label>Estado da tela<input name="screenCondition" maxlength="120" placeholder="Ex.: sem riscos, trincada"></label>
+                <label>Estado da carcaça<input name="bodyCondition" maxlength="120" placeholder="Marcas, amassados..."></label>
+                <label>Acessórios<input name="accessories" maxlength="500" placeholder="Caixa, carregador, cabo..."></label>
+              </div>
+              <h3>Fotos do aparelho</h3>
+              <label class="phone-deal-photo-pick">📷 Adicionar fotos (até 4 imagens)<input type="file" id="phone-deal-photos" accept="image/*" multiple><small>Fotografe frente, traseira, laterais e detalhes/avarias.</small></label>
+              <div class="phone-deal-photo-preview" id="phone-deal-photo-preview"></div>
+              <h3>Dados do comprador / vendedor</h3>
+              <div class="phone-deal-fields">
+                <label class="phone-deal-customer-select" id="phone-deal-customer-role-label">Selecionar cliente cadastrado
+                  <select name="customerId" id="phone-deal-customer"><option value="">Selecionar cliente (opcional)</option></select>
+                  <small>Ao selecionar, os dados cadastrados serão preenchidos automaticamente.</small>
+                </label>
+                <label>Nome completo *<input name="contactName" id="phone-deal-contact-name" required maxlength="160" placeholder="Nome e sobrenome"></label>
+                <label>CPF<input name="contactCpf" id="phone-deal-contact-cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00"></label>
+                <label>Telefone / WhatsApp<input name="contactPhone" id="phone-deal-contact-phone" type="tel" inputmode="tel" maxlength="15" placeholder="(00) 00000-0000"></label>
+                <label class="phone-deal-address-field">Endereço completo<input name="contactAddress" id="phone-deal-contact-address" maxlength="500" placeholder="Rua, número, complemento, bairro, cidade - UF, CEP"></label>
+              </div>
+              <h3>Valores e pagamento</h3>
+              <div class="phone-deal-fields">
+                <label>Valor de compra (R$)<input name="purchasePrice" class="phone-deal-currency" inputmode="numeric" placeholder="R$ 0,00"></label>
+                <label>Valor de venda (R$)<input name="salePrice" class="phone-deal-currency" inputmode="numeric" placeholder="R$ 0,00"></label>
+                <label>Forma de pagamento<select name="paymentMethod"><option>Pix</option><option>Dinheiro</option><option>Cartão de crédito</option><option>Cartão de débito</option><option>Transferência</option><option>Outro</option></select></label>
+                <label>Data da negociação<input name="dealDate" type="date"></label>
+              </div>
+              <label class="phone-deal-notes">Observações / defeitos identificados<textarea name="notes" rows="3" maxlength="2000" placeholder="Descreva bloqueios, avarias, testes realizados e outras observações..."></textarea></label>
+              <div class="phone-deal-form-actions"><button class="button button-secondary" type="button" id="phone-deal-cancel-bottom">Cancelar</button><button class="button button-primary" type="submit">Salvar negociação</button></div>
+            </form>
+          </article>
+          <article class="panel phone-deal-history">
+            <div class="panel-heading"><div><h2>Histórico de negociações</h2><p>Pesquise por aparelho, IMEI ou nome.</p></div></div>
+            <div class="inventory-toolbar"><label class="search-box"><span>⌕</span><input id="phone-deal-search" type="search" placeholder="Buscar marca, modelo, IMEI ou pessoa..."></label><select class="select-control" id="phone-deal-filter"><option value="all">Compras e vendas</option><option value="Compra">Somente compras</option><option value="Venda">Somente vendas</option></select></div>
+            <div class="table-wrap"><table><thead><tr><th>TIPO</th><th>APARELHO / IMEI</th><th>CLIENTE / VENDEDOR</th><th>DATA</th><th>VALOR</th><th>FOTOS</th><th>AÇÕES</th></tr></thead><tbody id="phone-deals-body"></tbody></table></div>
+            <p class="phone-deal-empty" id="phone-deal-empty" hidden>Nenhuma negociação encontrada.</p>
+          </article>
+        </section>
+
         <section class="page" id="page-products">
           <div class="page-heading heading-with-action"><div><p class="eyebrow">PEÇAS, ACESSÓRIOS E SERVIÇOS</p><h1>Estoque</h1><p class="heading-subtitle">Controle peças de reposição, acessórios e serviços técnicos.</p></div><button class="button button-primary" id="add-product-button"><span>＋</span> Nova peça ou serviço</button></div>
           <div class="stats-grid compact-stats"><article class="stat-card"><div class="stat-top"><span>Peças e serviços</span><span class="stat-icon purple">▤</span></div><strong class="stat-value" id="product-total">0</strong><div class="stat-foot"><span>Itens cadastrados</span></div></article><article class="stat-card"><div class="stat-top"><span>Valor em peças</span><span class="stat-icon green">R$</span></div><strong class="stat-value" id="inventory-value">R$ 0,00</strong><div class="stat-foot"><span>Calculado pelo preço de custo</span></div></article><article class="stat-card"><div class="stat-top"><span>Peças com estoque baixo</span><span class="stat-icon orange">!</span></div><strong class="stat-value" id="product-low-total">0</strong><div class="stat-foot"><span>Peças com 5 unidades ou menos</span></div></article></div>
@@ -211,6 +275,7 @@
     <fieldset class="service-order-section"><legend>6. Termos e assinaturas</legend><label class="service-order-term"><input id="service-order-authorized" type="checkbox" required><span>Autorizo a abertura do equipamento e a realização de diagnóstico técnico.</span></label><p class="service-order-legal">Equipamentos não retirados em até 90 dias após a conclusão poderão ser considerados abandonados. Após esse prazo, poderão ser descartados ou vendidos para ressarcir custos, quando permitido pela legislação aplicável.</p><label class="service-order-term"><input id="service-order-abandoned-accepted" type="checkbox" required><span>Declaro que fui informado(a) sobre o prazo de 90 dias para retirada após a conclusão.</span></label><p class="service-order-legal">A assistência não se responsabiliza por perda de dados ou arquivos durante o reparo. O backup dos dados é responsabilidade do cliente.</p><label class="service-order-term"><input id="service-order-data-accepted" type="checkbox" required><span>Estou ciente da responsabilidade por backup e dos riscos de perda de dados.</span></label><label class="field-label" for="service-order-signature-customer">Assinatura / nome do cliente *</label><input class="input-control" id="service-order-signature-customer" required maxlength="100" placeholder="Digite o nome para registrar o aceite"><div class="modal-actions"><button class="button button-secondary" type="button" data-close="service-order-modal">Cancelar</button><button class="button button-primary" type="submit">Criar ordem</button></div></fieldset>
   </form></dialog>
   <dialog class="modal service-order-modal" id="service-order-details-modal"><div class="modal-heading"><div><p class="eyebrow">ASSISTÊNCIA TÉCNICA</p><h2 id="service-order-details-title">Detalhes da ordem</h2></div><button class="modal-close" type="button" data-close="service-order-details-modal" aria-label="Fechar">×</button></div><div id="service-order-details-content" class="service-order-details"></div><div class="modal-actions"><button class="button button-primary" id="download-service-order-details" type="button">Baixar PDF</button><button class="button button-secondary" id="print-service-order-details" type="button">Imprimir</button><button class="button button-secondary" id="share-service-order-details" type="button">Compartilhar</button><button class="button button-secondary" type="button" data-close="service-order-details-modal">Fechar</button></div></dialog>
+  <dialog class="modal phone-deal-document-modal" id="phone-deal-document-modal"><div class="modal-heading"><div><p class="eyebrow">COMPRA E VENDA</p><h2>Documento da negociação</h2></div><button class="modal-close" type="button" data-close="phone-deal-document-modal" aria-label="Fechar">×</button></div><div id="phone-deal-document-content"></div><div class="modal-actions"><button class="button button-primary" id="share-phone-deal-document" type="button">Abrir WhatsApp</button><button class="button button-secondary" id="print-phone-deal-document" type="button">Imprimir documento</button><button class="button button-secondary" type="button" data-close="phone-deal-document-modal">Fechar</button></div></dialog>
   <dialog class="modal confirmation-modal" id="sale-modal"><div class="confirmation-mark">✓</div><p class="eyebrow">VENDA CONCLUÍDA</p><h2>Venda realizada!</h2><p id="sale-confirmation-text">O pedido foi registrado com sucesso.</p><div id="sale-receipt" class="receipt-summary"></div><button class="button button-primary" id="new-sale-button">Nova venda</button></dialog>
 </body>
 </html>
