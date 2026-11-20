@@ -73,10 +73,26 @@ function formatPhoneInput(event) {
   }
   input.setSelectionRange(cursor, cursor);
 }
+const capitalizeWords = (value) => String(value ?? "").toLocaleLowerCase("pt-BR").replace(/(^|[\s'-])([a-záàâãéèêíïóôõöúçñ])/giu, (_, separator, letter) => separator + letter.toLocaleUpperCase("pt-BR"));
+const formatPercent = (value) => {
+  const digits = String(value ?? "").replace(/[^0-9]/g, "").slice(0, 3);
+  if (!digits) return "";
+  return `${Math.min(100, Number(digits))}%`;
+};
+const formatRealInput = (value) => {
+  const digits = String(value ?? "").replace(/\D/g, "").slice(0, 12);
+  if (!digits) return "";
+  return money(Number(digits) / 100);
+};
+const customerFullAddress = (customer) => customer ? (customer.address || [
+  [customer.street, customer.addressNumber].filter(Boolean).join(", "), customer.complement,
+  customer.neighborhood, [customer.city, customer.state].filter(Boolean).join(" - "),
+  customer.zipCode ? `CEP ${customer.zipCode}` : ""
+].filter(Boolean).join(", ")) : "";
 const initials = (name) => String(name || "CF").trim().split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase();
 const formatDate = (date) => new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(`${date}T12:00:00`)).replace(".", "");
 const seedData = () => {
-  return { products: [], customers: [], sales: [], serviceOrders: [], nextSaleNumber: 1, nextServiceOrderNumber: 1 };
+  return { products: [], customers: [], sales: [], serviceOrders: [], phoneDeals: [], nextSaleNumber: 1, nextServiceOrderNumber: 1 };
 };
 let state = seedData();
 let supabaseClient = null;
@@ -149,11 +165,12 @@ function setPage(name) {
   document.querySelector(".app-shell").classList.toggle("sales-mode", name === "sales");
   document.querySelectorAll(".page").forEach((item) => item.classList.toggle("active", item === page));
   document.querySelectorAll(".nav-link").forEach((item) => item.classList.toggle("active", item.dataset.page === name));
-  document.getElementById("breadcrumb-current").textContent = { dashboard: "Visão geral", sales: "Vendas", "service-orders": "Ordens de serviço", products: "Estoque", "film-compatibility": "Compatibilidade de películas", customers: "Clientes", reports: "Relatórios" }[name];
+  document.getElementById("breadcrumb-current").textContent = { dashboard: "Visão geral", sales: "Vendas", "service-orders": "Ordens de serviço", "phone-deals": "Compra e Venda", products: "Estoque", "film-compatibility": "Compatibilidade de películas", customers: "Clientes", reports: "Relatórios" }[name];
   document.getElementById("sidebar").classList.remove("open");
   if (name === "dashboard") renderDashboard();
   if (name === "sales") renderSales();
   if (name === "service-orders") renderServiceOrders();
+  if (name === "phone-deals") renderPhoneDeals();
   if (name === "products") renderProducts();
   if (name === "film-compatibility") renderFilmCompatibility();
   if (name === "customers") renderCustomers();
@@ -367,6 +384,194 @@ function finishSale() {
   renderSales();
   document.getElementById("sale-modal").showModal();
 }
+
+function phoneDealMoney(value) {
+  return money(Number(value) || 0);
+}
+function renderPhoneDeals() {
+  const deals = Array.isArray(state.phoneDeals) ? state.phoneDeals : [];
+  const buys = deals.filter((item) => item.direction === "Compra");
+  const sells = deals.filter((item) => item.direction === "Venda");
+  document.getElementById("phone-deal-buy-total").textContent = phoneDealMoney(buys.reduce((sum, item) => sum + Number(item.purchasePrice || 0), 0));
+  document.getElementById("phone-deal-sell-total").textContent = phoneDealMoney(sells.reduce((sum, item) => sum + Number(item.salePrice || 0), 0));
+  document.getElementById("phone-deal-buy-count").textContent = `${buys.length} aparelho(s)`;
+  document.getElementById("phone-deal-sell-count").textContent = `${sells.length} aparelho(s)`;
+  document.getElementById("phone-deal-count").textContent = String(deals.length);
+  const query = document.getElementById("phone-deal-search").value.trim().toLocaleLowerCase("pt-BR");
+  const filter = document.getElementById("phone-deal-filter").value;
+  const filtered = deals.filter((item) => (filter === "all" || item.direction === filter) &&
+    `${item.brand} ${item.model} ${item.imei1} ${item.imei2} ${item.contactName} ${item.serialNumber}`.toLocaleLowerCase("pt-BR").includes(query))
+    .sort((a,b) => String(b.createdAt || b.dealDate).localeCompare(String(a.createdAt || a.dealDate)));
+  document.getElementById("phone-deal-empty").hidden = filtered.length > 0;
+  document.getElementById("phone-deals-body").innerHTML = filtered.map((item) => {
+    const price = item.direction === "Compra" ? item.purchasePrice : item.salePrice;
+    const typeClass = item.direction === "Compra" ? "status-warning" : "status-success";
+    return `<tr><td><span class="status-pill ${typeClass}">${escapeHTML(item.direction)}</span></td>
+      <td><strong>${escapeHTML(item.brand)} ${escapeHTML(item.model)}</strong><br><small>IMEI: ${escapeHTML(item.imei1 || "Não informado")}</small></td>
+      <td>${escapeHTML(item.contactName)}<br><small>${escapeHTML(item.contactPhone || "Sem telefone")}</small></td>
+      <td>${escapeHTML(formatDate(item.dealDate || new Date().toISOString().slice(0,10)))}</td>
+      <td><strong>${phoneDealMoney(price)}</strong></td>
+      <td>${(item.photos || []).length} foto(s)</td>
+      <td><div class="phone-deal-row-actions"><button class="button button-secondary phone-deal-document-open" type="button" data-view-phone-deal="${escapeHTML(item.id)}">Documento</button><button class="button button-secondary phone-deal-share" type="button" data-share-phone-deal="${escapeHTML(item.id)}">WhatsApp ↗</button></div></td></tr>`;
+  }).join("");
+}
+function updatePhoneDealCustomerRole() {
+  const direction = document.querySelector('#phone-deal-form input[name="dealDirection"]:checked')?.value || "Compra";
+  const role = direction === "Compra" ? "Vendedor" : "Comprador";
+  document.getElementById("phone-deal-customer-role-label").firstChild.textContent = `Selecionar ${role.toLocaleLowerCase("pt-BR")} cadastrado`;
+}
+function fillPhoneDealCustomer(customer) {
+  const form = document.getElementById("phone-deal-form");
+  if (!customer) {
+    form.elements.contactName.value = "";
+    form.elements.contactCpf.value = "";
+    form.elements.contactPhone.value = "";
+    form.elements.contactAddress.value = "";
+    return;
+  }
+  form.elements.contactName.value = capitalizeWords(customer.name || "");
+  form.elements.contactCpf.value = formatCpf(customer.document || "");
+  form.elements.contactPhone.value = formatPhone(customer.phone || "");
+  form.elements.contactAddress.value = customerFullAddress(customer);
+}
+function populatePhoneDealCustomers() {
+  const select = document.getElementById("phone-deal-customer");
+  const previous = select.value;
+  select.innerHTML = '<option value="">Selecionar cliente (opcional)</option>' + (state.customers || []).slice().sort((a,b) => String(a.name).localeCompare(String(b.name), "pt-BR")).map((customer) => `<option value="${escapeHTML(customer.id)}">${escapeHTML(customer.name)}${customer.document ? ` — ${escapeHTML(formatCpf(customer.document))}` : ""}</option>`).join("");
+  if ((state.customers || []).some((customer) => customer.id === previous)) select.value = previous;
+}
+function openPhoneDealForm() {
+  const panel = document.getElementById("phone-deal-form-panel");
+  const form = document.getElementById("phone-deal-form");
+  form.reset();
+  form.elements.dealDate.value = new Date().toISOString().slice(0,10);
+  populatePhoneDealCustomers();
+  updatePhoneDealCustomerRole();
+  document.getElementById("phone-deal-photo-preview").innerHTML = "";
+  document.getElementById("phone-deal-photos").value = "";
+  panel.hidden = false;
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function readPhoneDealPhoto(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Não foi possível ler uma das fotos."));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error("Uma das imagens está inválida."));
+      image.onload = () => {
+        const max = 1200;
+        const scale = Math.min(1, max / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.72));
+      };
+      image.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+async function savePhoneDeal(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  const direction = data.get("dealDirection");
+  const purchasePrice = parseMoney(String(data.get("purchasePrice") || "0"));
+  const salePrice = parseMoney(String(data.get("salePrice") || "0"));
+  if (direction === "Compra" && purchasePrice <= 0) return toast("Informe o valor pago na compra.", "error");
+  if (direction === "Venda" && salePrice <= 0) return toast("Informe o valor recebido na venda.", "error");
+  const photoNodes = [...document.querySelectorAll("#phone-deal-photo-preview img")];
+  const photos = photoNodes.map((img) => img.src);
+  const deal = {
+    id: crypto.randomUUID ? crypto.randomUUID() : `phone-${Date.now()}`,
+    direction, customerId: String(data.get("customerId") || ""), brand: capitalizeWords(data.get("brand") || "").trim(), model: capitalizeWords(data.get("model") || "").trim(),
+    color: capitalizeWords(data.get("color") || ""), storage: capitalizeWords(data.get("storage") || ""),
+    imei1: String(data.get("imei1") || ""), imei2: String(data.get("imei2") || ""),
+    serialNumber: String(data.get("serialNumber") || ""), deviceCondition: String(data.get("deviceCondition") || "Usado"),
+    batteryHealth: formatPercent(data.get("batteryHealth") || ""), screenCondition: capitalizeWords(data.get("screenCondition") || ""),
+    bodyCondition: capitalizeWords(data.get("bodyCondition") || ""), accessories: capitalizeWords(data.get("accessories") || ""),
+    contactName: capitalizeWords(data.get("contactName") || "").trim(), contactCpf: formatCpf(data.get("contactCpf") || ""),
+    contactPhone: formatPhone(data.get("contactPhone") || ""), contactAddress: capitalizeWords(data.get("contactAddress") || ""),
+    purchasePrice, salePrice, paymentMethod: String(data.get("paymentMethod") || "Pix"),
+    dealDate: String(data.get("dealDate") || new Date().toISOString().slice(0,10)),
+    notes: capitalizeWords(data.get("notes") || ""), photos, createdAt: new Date().toISOString()
+  };
+  state.phoneDeals = [...(state.phoneDeals || []), deal];
+  saveState();
+  form.reset();
+  document.getElementById("phone-deal-photo-preview").innerHTML = "";
+  document.getElementById("phone-deal-form-panel").hidden = true;
+  renderPhoneDeals();
+  toast("Negociação salva no banco de dados.");
+}
+function phoneDealShareText(item) {
+  return [
+    `*ZOOM TECH — ${item.direction.toUpperCase()} DE CELULAR*`,
+    `Aparelho: ${item.brand} ${item.model}`, `Cor: ${item.color || "Não informada"} | Armazenamento: ${item.storage || "Não informado"}`,
+    `IMEI 1: ${item.imei1 || "Não informado"}`, `IMEI 2: ${item.imei2 || "Não informado"}`,
+    `Número de série: ${item.serialNumber || "Não informado"}`, `Estado: ${item.deviceCondition || "Não informado"}`,
+    `Bateria: ${item.batteryHealth || "Não informada"}`, `Tela: ${item.screenCondition || "Não informada"}`,
+    `Carcaça: ${item.bodyCondition || "Não informada"}`, `Acessórios: ${item.accessories || "Não informados"}`,
+    `Cliente/vendedor: ${item.contactName}`, `Telefone: ${item.contactPhone || "Não informado"}`,
+    `CPF: ${item.contactCpf || "Não informado"}`, `Endereço: ${item.contactAddress || "Não informado"}`,
+    `Compra: ${phoneDealMoney(item.purchasePrice)} | Venda: ${phoneDealMoney(item.salePrice)}`,
+    `Pagamento: ${item.paymentMethod}`, `Data: ${formatDate(item.dealDate)}`, `Observações: ${item.notes || "Nenhuma"}`,
+    `Fotos cadastradas: ${(item.photos || []).length}`, "Zoom Tech — Assistência Técnica"
+  ].join("\n");
+}
+function phoneDealDocumentContent(item) {
+  const value = (text) => escapeHTML(String(text || "Não informado")).replace(/\r?\n/g, "<br>");
+  const row = (label, text) => `<div class="phone-deal-document-row"><span>${escapeHTML(label)}</span><strong>${value(text)}</strong></div>`;
+  const transactionValue = item.direction === "Compra" ? item.purchasePrice : item.salePrice;
+  const otherParty = item.direction === "Compra" ? "Vendedor" : "Comprador";
+  const photos = (item.photos || []).map((photo, index) => `<figure><img src="${escapeHTML(photo)}" alt="Foto ${index + 1} do aparelho"><a href="${escapeHTML(photo)}" download="zoom-tech-aparelho-${index + 1}.jpg">Baixar foto ${index + 1}</a></figure>`).join("");
+  return `<article class="phone-deal-document">
+    <header class="phone-deal-document-header"><img src="Logo.png" alt="Zoom tech"><div><p>ZOOM TECH · ASSISTÊNCIA TÉCNICA</p><h1>Comprovante de ${item.direction.toLocaleLowerCase("pt-BR")} de celular</h1><span>Data da negociação: ${value(formatDate(item.dealDate || new Date().toISOString().slice(0, 10)))}</span></div></header>
+    <section><h2>Dados da negociação</h2>${row("Tipo", item.direction)}${row("Valor", phoneDealMoney(transactionValue))}${row("Pagamento", item.paymentMethod)}${row(otherParty, item.contactName)}${row("CPF", item.contactCpf)}${row("Telefone", item.contactPhone)}${row("Endereço", item.contactAddress)}</section>
+    <section><h2>Identificação do aparelho</h2>${row("Marca e modelo", `${item.brand || ""} ${item.model || ""}`.trim())}${row("Cor", item.color)}${row("Armazenamento", item.storage)}${row("IMEI 1", item.imei1)}${row("IMEI 2", item.imei2)}${row("Número de série", item.serialNumber)}</section>
+    <section><h2>Estado e acessórios</h2>${row("Condição", item.deviceCondition)}${row("Saúde da bateria", item.batteryHealth)}${row("Tela", item.screenCondition)}${row("Carcaça", item.bodyCondition)}${row("Acessórios", item.accessories)}${row("Observações", item.notes)}</section>
+    ${photos ? `<section class="phone-deal-document-photos"><h2>Fotos do aparelho</h2><div>${photos}</div></section>` : ""}
+    <p class="phone-deal-document-note">Registro da negociação conforme as informações cadastradas na plataforma. Para enviar as fotos pelo WhatsApp Web, baixe-as acima e anexe-as à conversa.</p>
+    <footer class="phone-deal-document-signatures"><div><span></span><strong>Zoom tech · Assistência técnica</strong></div><div><span></span><strong>${escapeHTML(otherParty)}</strong></div></footer>
+  </article>`;
+}
+function openPhoneDealDocument(id) {
+  const item = (state.phoneDeals || []).find((deal) => deal.id === id);
+  if (!item) return toast("Não foi possível localizar esta negociação.", "error");
+  document.getElementById("phone-deal-document-content").innerHTML = phoneDealDocumentContent(item);
+  document.getElementById("print-phone-deal-document").dataset.printPhoneDeal = item.id;
+  document.getElementById("share-phone-deal-document").dataset.sharePhoneDeal = item.id;
+  document.getElementById("phone-deal-document-modal").showModal();
+}
+function printPhoneDealDocument(id) {
+  const item = (state.phoneDeals || []).find((deal) => deal.id === id);
+  if (!item) return toast("Não foi possível localizar esta negociação.", "error");
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return toast("O navegador bloqueou a janela do documento. Permita pop-ups e tente novamente.", "error");
+  try {
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Documento de ${escapeHTML(item.direction.toLocaleLowerCase("pt-BR"))} - ${escapeHTML(item.brand)} ${escapeHTML(item.model)}</title><style>
+      @page{size:A4;margin:16mm}*{box-sizing:border-box}body{font:13px Arial,sans-serif;color:#172033;margin:0}.phone-deal-document{max-width:760px;margin:auto}.phone-deal-document-header{display:flex;align-items:center;gap:18px;border-bottom:2px solid #1688e9;padding-bottom:16px}.phone-deal-document-header img{width:72px;height:72px;object-fit:contain}.phone-deal-document-header p{margin:0 0 6px;color:#667085;font-size:10px;font-weight:bold;letter-spacing:1px}.phone-deal-document-header h1{margin:0 0 6px;font-size:21px;text-transform:capitalize}.phone-deal-document-header span{color:#667085}.phone-deal-document section{margin-top:20px;break-inside:avoid}.phone-deal-document section h2{margin:0 0 8px;padding-bottom:6px;border-bottom:1px solid #dfe5ec;color:#334155;font-size:14px}.phone-deal-document-row{display:grid;grid-template-columns:180px 1fr;gap:12px;padding:6px 0;border-bottom:1px solid #eef0f3}.phone-deal-document-row span{color:#667085}.phone-deal-document-row strong{font-weight:600;overflow-wrap:anywhere}.phone-deal-document-photos>div{display:flex;flex-wrap:wrap;gap:10px}.phone-deal-document-photos figure{margin:0}.phone-deal-document-photos img{width:150px;height:150px;object-fit:contain;border:1px solid #dfe5ec;border-radius:6px}.phone-deal-document-photos a{display:none}.phone-deal-document-note{margin-top:22px;color:#667085;font-size:11px}.phone-deal-document-signatures{display:grid;grid-template-columns:1fr 1fr;gap:50px;margin-top:55px;text-align:center}.phone-deal-document-signatures span{display:block;border-top:1px solid #475467;margin-bottom:8px}.phone-deal-document-signatures strong{font-size:11px}
+    </style></head><body>${phoneDealDocumentContent(item)}</body></html>`);
+    printWindow.document.close();
+    setTimeout(() => { printWindow.focus(); printWindow.print(); }, 300);
+  } catch (error) {
+    printWindow.close();
+    console.error("Não foi possível preparar o documento da negociação:", error);
+    toast("Não foi possível preparar o documento da negociação.", "error");
+  }
+}
+function sharePhoneDeal(id) {
+  const item = (state.phoneDeals || []).find((deal) => deal.id === id);
+  if (!item) return;
+  const text = phoneDealShareText(item);
+  const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+  if ((item.photos || []).length) toast("WhatsApp aberto com a mensagem. As fotos estão no documento da negociação; baixe-as e anexe-as à conversa.");
+}
+
 function renderProducts() {
   const search = document.getElementById("inventory-search").value.trim().toLocaleLowerCase("pt-BR");
   const filter = document.getElementById("inventory-filter").value;
@@ -921,15 +1126,35 @@ async function shareServiceOrder(id) {
   }
   const filename = `ordem-de-servico-${String(order.number).padStart(4, "0")}.pdf`;
   const device = [order.deviceType, order.deviceBrand, order.deviceModel || order.device].filter(Boolean).join(" ");
+  const serial = order.serial || "Não informado";
+  const trackingUrl = `https://zoom-tech-gestao.flot.app/tracking?id=${encodeURIComponent(String(order.number).padStart(4, "0"))}`;
   const lines = [
-    `Ordem de serviço ${number}`,
-    `Cliente: ${order.customerName || "—"}`,
-    `Status: ${order.status || "—"}`,
-    `Aparelho: ${device || "—"}`,
-    `Defeito relatado: ${order.issue || "—"}`,
-    order.diagnosis ? `Diagnóstico: ${order.diagnosis}` : "",
-    `Orçamento: ${money(order.estimate || 0)}`,
-    order.dueDate ? `Previsão de entrega: ${formatDate(order.dueDate)}` : "",
+    `📋 ORDEM DE SERVIÇO · ${number}`,
+    `Status: ${order.status || "Não informado"}`,
+    "",
+    `👤 DADOS DO CLIENTE`,
+    `Nome: ${order.customerName || "Não informado"}`,
+    `WhatsApp: ${order.phone ? formatPhone(order.phone) : "Não informado"}`,
+    "",
+    `📱 APARELHO`,
+    `Modelo: ${device || "Não informado"}`,
+    `IMEI: ${serial}`,
+    "",
+    `🔧 REPARO`,
+    `Problema relatado: ${order.issue || "Não informado"}`,
+    `Diagnóstico: ${order.diagnosis || "Não informado"}`,
+    `Serviço: ${order.parts || "Não informado"}`,
+    `Peças utilizadas: ${order.partsTotal ? money(order.partsTotal) : "Não informado"}`,
+    "",
+    `💰 VALORES`,
+    `Serviço: ${money(order.labor || 0)}`,
+    `Peças: ${money(order.partsTotal || 0)}`,
+    `Total do orçamento: ${money(order.estimate || 0)}`,
+    "",
+    `🛡️ Garantia: confirme o prazo e as condições com a loja.`,
+    "",
+    `🔍 Acompanhe o andamento da OS:`,
+    trackingUrl,
   ].filter(Boolean);
   const text = lines.join("\n");
   if (typeof navigator.share === "function" && typeof File === "function") {
@@ -1220,7 +1445,59 @@ document.addEventListener("click", (event) => {
   if (target.dataset.downloadServiceOrder) downloadServiceOrder(target.dataset.downloadServiceOrder);
   if (target.dataset.printServiceOrder) printServiceOrder(target.dataset.printServiceOrder);
   if (target.dataset.shareServiceOrder) void shareServiceOrder(target.dataset.shareServiceOrder);
+  if (target.id === "phone-deal-new") openPhoneDealForm();
+  if (target.id === "phone-deal-cancel" || target.id === "phone-deal-cancel-bottom") document.getElementById("phone-deal-form-panel").hidden = true;
+  if (target.dataset.viewPhoneDeal) openPhoneDealDocument(target.dataset.viewPhoneDeal);
+  if (target.dataset.printPhoneDeal) printPhoneDealDocument(target.dataset.printPhoneDeal);
+  if (target.dataset.sharePhoneDeal) void sharePhoneDeal(target.dataset.sharePhoneDeal);
   if (target.dataset.close) document.getElementById(target.dataset.close).close();
+});
+
+document.getElementById("phone-deal-form").addEventListener("submit", savePhoneDeal);
+document.getElementById("phone-deal-customer").addEventListener("change", (event) => {
+  const customer = (state.customers || []).find((item) => item.id === event.target.value);
+  fillPhoneDealCustomer(customer);
+});
+document.querySelectorAll('#phone-deal-form input[name="dealDirection"]').forEach((input) => input.addEventListener("change", updatePhoneDealCustomerRole));
+document.getElementById("phone-deal-contact-cpf").addEventListener("input", (event) => { event.target.value = formatCpf(event.target.value); });
+document.getElementById("phone-deal-contact-phone").addEventListener("input", formatPhoneInput);
+document.querySelectorAll('#phone-deal-form input:not([type="file"]):not([type="date"]):not([type="radio"]):not(.phone-deal-currency)').forEach((input) => {
+  if (["contactCpf", "contactPhone", "batteryHealth"].includes(input.name)) return;
+  input.addEventListener("input", (event) => {
+    const input = event.currentTarget;
+    const start = input.selectionStart;
+    const before = input.value;
+    input.value = capitalizeWords(input.value);
+    if (document.activeElement === input && start !== null && before !== input.value) input.setSelectionRange(input.value.length, input.value.length);
+  });
+});
+document.getElementById("phone-deal-form").elements.batteryHealth.addEventListener("input", (event) => { event.target.value = formatPercent(event.target.value); });
+document.querySelector('#phone-deal-form textarea[name="notes"]').addEventListener("input", (event) => { event.target.value = capitalizeWords(event.target.value); });
+document.querySelectorAll(".phone-deal-currency").forEach((input) => input.addEventListener("input", (event) => { event.target.value = formatRealInput(event.target.value); }));
+document.getElementById("phone-deal-search").addEventListener("input", renderPhoneDeals);
+document.getElementById("phone-deal-filter").addEventListener("change", renderPhoneDeals);
+document.getElementById("phone-deal-photos").addEventListener("change", async (event) => {
+  const input = event.currentTarget;
+  const current = document.querySelectorAll("#phone-deal-photo-preview img").length;
+  const files = [...input.files].slice(0, Math.max(0, 4-current));
+  if (input.files.length > files.length) toast("É possível adicionar até 4 fotos por aparelho.", "error");
+  for (const file of files) {
+    if (!file.type.startsWith("image/")) continue;
+    try {
+      const src = await readPhoneDealPhoto(file);
+      const wrapper = document.createElement("div");
+      wrapper.className = "phone-deal-photo-thumb";
+      const image = document.createElement("img");
+      image.src = src;
+      image.alt = "Foto do aparelho";
+      const remove = document.createElement("button");
+      remove.type = "button"; remove.textContent = "×"; remove.setAttribute("aria-label", "Remover foto");
+      remove.addEventListener("click", () => wrapper.remove());
+      wrapper.append(image, remove);
+      document.getElementById("phone-deal-photo-preview").append(wrapper);
+    } catch (error) { toast(error.message || "Falha ao adicionar foto.", "error"); }
+  }
+  input.value = "";
 });
 document.getElementById("product-search").addEventListener("input", () => {
   const query = document.getElementById("product-search").value.trim().toLocaleLowerCase("pt-BR");
@@ -1434,6 +1711,7 @@ async function loadWorkspace() {
     }
     state = row.data;
     if (!Array.isArray(state.serviceOrders)) state.serviceOrders = [];
+    if (!Array.isArray(state.phoneDeals)) state.phoneDeals = [];
     state.nextServiceOrderNumber = Number(state.nextServiceOrderNumber) || Math.max(0, ...state.serviceOrders.map((order) => Number(order.number) || 0)) + 1;
     state.nextSaleNumber = Number(state.nextSaleNumber) || Math.max(1042, ...state.sales.map((sale) => Number(sale.number) || 0)) + 1;
     databaseVersion = row.version;
@@ -1453,6 +1731,7 @@ async function loadWorkspace() {
     }
     state = createdRow.data;
     if (!Array.isArray(state.serviceOrders)) state.serviceOrders = [];
+    if (!Array.isArray(state.phoneDeals)) state.phoneDeals = [];
     state.nextServiceOrderNumber = Number(state.nextServiceOrderNumber) || 1;
     state.nextSaleNumber = Number(state.nextSaleNumber) || 1;
     databaseVersion = createdRow.version;
