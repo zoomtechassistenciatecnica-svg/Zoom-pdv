@@ -944,6 +944,8 @@ body.is-authenticated .login-screen{display:none}
 .phone-deal-share{padding:7px 10px;font-size:9px;white-space:nowrap}
 .phone-deal-row-actions{display:flex;align-items:center;gap:6px}
 .phone-deal-document-open,.phone-deal-share{padding:7px 9px;font-size:9px;white-space:nowrap}
+.phone-deal-delete{padding:7px 9px;border:1px solid #efb4b4;background:#fff5f5;color:#b42318;font-size:9px;white-space:nowrap}
+.phone-deal-delete:hover{border-color:#d92d20;background:#fee4e2}
 .phone-deal-document-modal{width:min(760px,calc(100vw - 28px));max-width:760px;max-height:92vh;overflow:auto;border:1px solid #d5deea;background:#fff;color:#172033}
 .phone-deal-document-modal .modal-heading h2{color:#172033}
 .phone-deal-document-modal .eyebrow{color:#087eff}
