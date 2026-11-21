@@ -8,6 +8,23 @@ const dialog = document.getElementById("testDialog");
 const content = document.getElementById("dialogContent");
 const actions = document.getElementById("dialogActions");
 let activeCleanup = null;
+let detectedDeviceInfo = null;
+
+async function enterFullScreen() {
+  const fullscreenElement = document.documentElement;
+  if (!document.fullscreenElement && fullscreenElement.requestFullscreen) {
+    try {
+      await fullscreenElement.requestFullscreen();
+    } catch (error) {
+      console.warn("Não foi possível entrar em tela cheia:", error);
+    }
+  }
+}
+function exitFullScreen() {
+  if (document.fullscreenElement && document.exitFullscreen) {
+    document.exitFullscreen().catch(() => {});
+  }
+}
 
 function setButtons(items) {
   actions.innerHTML = "";
@@ -70,8 +87,11 @@ async function launch(key) {
 function runScreen(key) {
   const colors = ["#ffffff", "#000000", "#ff0000", "#00c853", "#0066ff"];
   let index = 0;
-  openTest(testNames[key], `<p>Observe a tela em brilho confortável e procure manchas ou pixels defeituosos.</p><div id="colorStage" class="test-pattern" style="background:${colors[0]}"></div><p id="colorLabel">Branco (1/5)</p>`);
+  enterFullScreen();
+  openTest(testNames[key], `<div class="fullscreen-screen-test" id="screenTestStage"><div id="colorStage" class="test-pattern" style="background:${colors[0]}"></div><div class="screen-test-overlay"><strong id="colorLabel">Branco (1/5)</strong><button id="nextColorButton" type="button">Próxima cor</button></div></div>`);
+  dialog.classList.add("samsung-fullscreen-dialog");
   setButtons([{ label: "Próxima cor", primary: true, onClick: next }]);
+  document.getElementById("nextColorButton").onclick = next;
   function next() {
     index += 1;
     if (index >= colors.length) {
@@ -87,16 +107,6 @@ function runScreen(key) {
   }
 }
 function runTouch(key) {
-  const enterFullScreen = async () => {
-    const fullscreenElement = document.documentElement;
-    if (!document.fullscreenElement && fullscreenElement.requestFullscreen) {
-      try {
-        await fullscreenElement.requestFullscreen();
-      } catch (error) {
-        console.warn("Não foi possível entrar em tela cheia:", error);
-      }
-    }
-  };
   enterFullScreen();
   openTest(testNames[key], `<canvas class="samsung-touch-test" id="samsungTouchTest" aria-label="Teste de toque da tela"></canvas>`);
   dialog.classList.add("samsung-touch-dialog");
@@ -251,7 +261,9 @@ function runTouch(key) {
 }
 async function runCamera(key) {
   const front = key === "cameraFront";
+  enterFullScreen();
   openTest(testNames[key], `<p>Autorize o acesso à câmera e confira a imagem.</p><video id="cameraVideo" autoplay playsinline muted></video><p id="cameraHint">Solicitando permissão...</p>`);
+  dialog.classList.add("camera-fullscreen-dialog");
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: front ? "user" : "environment" } } });
     document.getElementById("cameraVideo").srcObject = stream;
@@ -368,6 +380,9 @@ document.getElementById("closeDialog").addEventListener("click", () => {
 });
 dialog.addEventListener("close", () => {
   dialog.classList.remove("samsung-touch-dialog");
+  dialog.classList.remove("samsung-fullscreen-dialog");
+  dialog.classList.remove("camera-fullscreen-dialog");
+  exitFullScreen();
   if (activeCleanup) { activeCleanup(); activeCleanup = null; }
 });
 document.getElementById("resetBtn").addEventListener("click", () => {
@@ -396,10 +411,49 @@ document.getElementById("autoModeBtn").addEventListener("click", async () => {
 });
 
 async function deviceInfo() {
-  const platform = navigator.userAgentData?.platform || navigator.platform || "Não identificado";
-  const model = navigator.userAgentData?.model || "Modelo não disponibilizado pelo navegador";
-  const system = navigator.userAgent.includes("Android") ? "Android" : navigator.userAgent.includes("iPhone") || navigator.userAgent.includes("iPad") ? "iOS" : "Outro sistema";
-  document.getElementById("deviceInfo").textContent = `${platform} • ${model} • ${system}`;
+  let nativeInfo = null;
+  try {
+    if (globalThis.ZoomDevice?.getDeviceInfo) {
+      nativeInfo = JSON.parse(globalThis.ZoomDevice.getDeviceInfo());
+    }
+  } catch (error) {
+    console.warn("Não foi possível obter informações nativas:", error);
+  }
+
+  const ua = navigator.userAgent;
+  const androidMatch = ua.match(/;\s*([^;)]+)\s*Build\//i);
+  const appleMatch = ua.match(/(iPhone|iPad)[^;)]*/i);
+  const inferredModel = androidMatch?.[1]?.trim() || appleMatch?.[0]?.trim() || navigator.userAgentData?.model || "Modelo não identificado";
+  const platform = nativeInfo?.platform || navigator.userAgentData?.platform || navigator.platform || "Não identificado";
+  const brand = nativeInfo?.brand || (navigator.userAgentData?.brands?.[0]?.brand) || (ua.includes("Android") ? "Android" : ua.includes("iPhone") || ua.includes("iPad") ? "Apple" : "Não identificado");
+  const model = nativeInfo?.model || inferredModel;
+  const system = nativeInfo?.system || (ua.includes("Android") ? "Android" : ua.includes("iPhone") || ua.includes("iPad") ? "iOS" : "Outro sistema");
+  const systemVersion = nativeInfo?.systemVersion || "";
+  const manufacturer = nativeInfo?.manufacturer || "";
+  const hardware = nativeInfo?.hardware || "";
+  const resolution = `${screen.width} × ${screen.height}`;
+  const details = [
+    `Marca: ${brand}`,
+    `Modelo: ${model}`,
+    manufacturer && manufacturer !== brand ? `Fabricante: ${manufacturer}` : "",
+    `Sistema: ${system}${systemVersion ? ` ${systemVersion}` : ""}`,
+    `Plataforma: ${platform}`,
+    hardware ? `Hardware: ${hardware}` : "",
+    `Tela: ${resolution}`
+  ].filter(Boolean).join(" • ");
+
+  detectedDeviceInfo = {
+    brand,
+    manufacturer,
+    model,
+    system,
+    system_version: systemVersion,
+    platform,
+    hardware,
+    screen_width: screen.width,
+    screen_height: screen.height
+  };
+  document.getElementById("deviceInfo").textContent = details;
 }
 document.getElementById("refreshInfo").addEventListener("click", deviceInfo);
 
@@ -408,6 +462,7 @@ async function saveReport() {
   const report = {
     results,
     device: {
+      ...detectedDeviceInfo,
       user_agent: navigator.userAgent,
       platform: navigator.userAgentData?.platform || navigator.platform || null,
       language: navigator.language,
