@@ -875,6 +875,179 @@ tbody tr:hover {
 body.is-authenticated .app-shell{display:block}
 .login-screen{min-height:100vh;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(420px,.95fr);background:#fff}
 body.is-authenticated .login-screen{display:none}
+
+.theme-toggle {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  font-size: 17px;
+}
+.theme-toggle-icon {
+  line-height: 1;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+  background: #f6f7fb;
+  color: #242432;
+}
+html[data-theme="light"] body,
+html[data-theme="light"] .app-shell,
+html[data-theme="light"] .main-area,
+html[data-theme="light"] .login-screen {
+  background: #f6f7fb;
+  color: #242432;
+}
+html[data-theme="light"] .sidebar,
+html[data-theme="light"] .topbar,
+html[data-theme="light"] .app-footer {
+  border-color: #e4e6ef;
+  background: #fff;
+  color: #242432;
+}
+html[data-theme="light"] .content {
+  background: #f6f7fb;
+}
+html[data-theme="light"] .brand,
+html[data-theme="light"] .store-switch strong,
+html[data-theme="light"] .breadcrumb strong,
+html[data-theme="light"] .page-heading h1,
+html[data-theme="light"] .panel-heading h2,
+html[data-theme="light"] .stat-value,
+html[data-theme="light"] .chart-summary > strong,
+html[data-theme="light"] .payment-legend strong,
+html[data-theme="light"] .inventory-product strong,
+html[data-theme="light"] .customer-name,
+html[data-theme="light"] .report-payment-row strong,
+html[data-theme="light"] .top-product-name,
+html[data-theme="light"] .service-order-detail strong,
+html[data-theme="light"] .modal,
+html[data-theme="light"] .empty-state strong {
+  color: #242432;
+}
+html[data-theme="light"] .brand-copy small,
+html[data-theme="light"] .store-switch small,
+html[data-theme="light"] .nav-caption,
+html[data-theme="light"] .breadcrumb,
+html[data-theme="light"] .today-label,
+html[data-theme="light"] .heading-subtitle,
+html[data-theme="light"] .stat-top,
+html[data-theme="light"] .stat-foot,
+html[data-theme="light"] .panel-heading p,
+html[data-theme="light"] .eyebrow,
+html[data-theme="light"] .table-hint,
+html[data-theme="light"] .field-label,
+html[data-theme="light"] .customer-email,
+html[data-theme="light"] .report-period-note,
+html[data-theme="light"] .catalog-meta,
+html[data-theme="light"] .service-order-detail span,
+html[data-theme="light"] .confirmation-modal > p:not(.eyebrow),
+html[data-theme="light"] .receipt-summary {
+  color: #68677a;
+}
+html[data-theme="light"] .store-switch,
+html[data-theme="light"] .sidebar .nav-link,
+html[data-theme="light"] .stat-card,
+html[data-theme="light"] .panel,
+html[data-theme="light"] .report-filters,
+html[data-theme="light"] .product-card,
+html[data-theme="light"] .cart-row,
+html[data-theme="light"] .low-stock-item,
+html[data-theme="light"] .report-payment-row,
+html[data-theme="light"] .top-product-row,
+html[data-theme="light"] .modal,
+html[data-theme="light"] .sales-header,
+html[data-theme="light"] .sales-searchbar,
+html[data-theme="light"] .sales-card,
+html[data-theme="light"] .sale-items-card,
+html[data-theme="light"] .film-compatibility-table-wrap,
+html[data-theme="light"] .film-compatibility-group h2 {
+  border-color: #e4e6ef;
+  background: #fff;
+  color: #242432;
+  box-shadow: 0 3px 14px #1d27450a;
+}
+html[data-theme="light"] .nav-link {
+  color: #68677a;
+}
+html[data-theme="light"] .nav-link:hover,
+html[data-theme="light"] .nav-link.active {
+  background: #efeff7;
+  color: #5145bd;
+}
+html[data-theme="light"] .nav-link.active {
+  box-shadow: inset 3px 0 #6c5ce7;
+}
+html[data-theme="light"] .sidebar-toggle,
+html[data-theme="light"] .icon-button,
+html[data-theme="light"] .more-button,
+html[data-theme="light"] .button-secondary,
+html[data-theme="light"] .table-action,
+html[data-theme="light"] .modal-close,
+html[data-theme="light"] .logout-button {
+  border-color: #dedfea;
+  background: #f8f8fc;
+  color: #5145bd;
+}
+html[data-theme="light"] .sidebar-toggle:hover,
+html[data-theme="light"] .icon-button:hover,
+html[data-theme="light"] .more-button:hover,
+html[data-theme="light"] .button-secondary:hover,
+html[data-theme="light"] .table-action:hover,
+html[data-theme="light"] .modal-close:hover {
+  background: #efeff7;
+  color: #3f35a4;
+}
+html[data-theme="light"] .select-control,
+html[data-theme="light"] .input-control,
+html[data-theme="light"] .search-box,
+html[data-theme="light"] .discount-field,
+html[data-theme="light"] .login-card,
+html[data-theme="light"] .login-input-wrap {
+  border-color: #dedfea;
+  background: #fff;
+  color: #242432;
+}
+html[data-theme="light"] .search-box input,
+html[data-theme="light"] .input-control,
+html[data-theme="light"] .select-control,
+html[data-theme="light"] .login-input-wrap input {
+  color: #242432;
+}
+html[data-theme="light"] table,
+html[data-theme="light"] .sale-items-table,
+html[data-theme="light"] .film-compatibility-table {
+  color: #242432;
+}
+html[data-theme="light"] th,
+html[data-theme="light"] .film-compatibility-table th {
+  color: #68677a;
+  border-color: #e8e9f1;
+  background: #fafafd;
+}
+html[data-theme="light"] td,
+html[data-theme="light"] .film-compatibility-table td,
+html[data-theme="light"] tbody tr:last-child td {
+  border-color: #ececf3;
+}
+html[data-theme="light"] tbody tr:hover {
+  background: #f7f7fb;
+}
+html[data-theme="light"] .modal {
+  background: #fff;
+  box-shadow: 0 20px 70px #1d27452b;
+}
+html[data-theme="light"] .modal::backdrop {
+  background: #1d274573;
+}
+html[data-theme="light"] .toast {
+  border-color: #dedfea;
+  background: #fff;
+  color: #242432;
+  box-shadow: 0 12px 32px #1d274521;
+}
 .login-story{position:relative;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;padding:38px clamp(36px,6vw,88px);color:#fff;background:radial-gradient(ellipse at 82% 13%,rgba(27,139,255,.32),transparent 32%),radial-gradient(ellipse at 15% 92%,rgba(0,104,235,.34),transparent 38%),linear-gradient(145deg,#06162c 0%,#071d3b 52%,#06254b 100%)}
 .login-story:before,.login-story:after{position:absolute;content:"";pointer-events:none;border:1px solid rgba(93,177,255,.12);border-radius:50%}
 .login-story:before{width:580px;height:580px;right:-240px;top:15%}

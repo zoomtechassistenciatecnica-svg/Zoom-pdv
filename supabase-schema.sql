@@ -45,6 +45,39 @@ create trigger set_pdv_data_updated_at
   before update on public.pdv_data
   for each row execute function public.set_pdv_data_updated_at();
 
+create or replace function public.resolve_login_identifier(p_identifier text)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  resolved_email text;
+  digits text := regexp_replace(coalesce(p_identifier, ''), '\D', '', 'g');
+begin
+  select u.email
+  into resolved_email
+  from auth.users u
+  where (
+    digits <> ''
+    and (
+      regexp_replace(coalesce(u.phone, ''), '\D', '', 'g') = digits
+      or regexp_replace(coalesce(u.phone, ''), '\D', '', 'g') = ltrim(digits, '55')
+      or regexp_replace(coalesce(u.raw_user_meta_data ->> 'cpf', ''), '\D', '', 'g') = digits
+      or regexp_replace(coalesce(u.raw_user_meta_data ->> 'document', ''), '\D', '', 'g') = digits
+      or regexp_replace(coalesce(u.raw_user_meta_data ->> 'phone', ''), '\D', '', 'g') = digits
+      or regexp_replace(coalesce(u.raw_user_meta_data ->> 'phone', ''), '\D', '', 'g') = ltrim(digits, '55')
+    )
+  )
+  limit 1;
+
+  return resolved_email;
+end;
+$$;
+
+revoke all on function public.resolve_login_identifier(text) from public;
+grant execute on function public.resolve_login_identifier(text) to anon, authenticated;
+
 create table if not exists public.hardware_diagnostics (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),

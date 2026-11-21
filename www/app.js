@@ -111,6 +111,29 @@ let productImagePromise = Promise.resolve();
 let serviceOrderPattern = [];
 let customerCepRequestId = 0;
 
+function applyTheme(theme) {
+  const normalizedTheme = theme === "light" ? "light" : "dark";
+  document.documentElement.dataset.theme = normalizedTheme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", normalizedTheme === "light" ? "#f6f7fb" : "#020815");
+  const toggle = document.getElementById("theme-toggle");
+  if (toggle) {
+    const lightMode = normalizedTheme === "light";
+    toggle.setAttribute("aria-label", lightMode ? "Ativar modo escuro" : "Ativar modo claro");
+    toggle.setAttribute("title", lightMode ? "Ativar modo escuro" : "Ativar modo claro");
+    toggle.querySelector(".theme-toggle-icon").textContent = lightMode ? "☾" : "☀";
+  }
+  try { localStorage.setItem("zoomtech-theme", normalizedTheme); } catch (_) {}
+}
+
+const savedTheme = (() => {
+  try { return localStorage.getItem("zoomtech-theme"); } catch (_) { return null; }
+})();
+applyTheme(savedTheme || document.documentElement.dataset.theme || "dark");
+document.getElementById("theme-toggle")?.addEventListener("click", () => {
+  applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
+  toast(document.documentElement.dataset.theme === "light" ? "Modo claro ativado." : "Modo escuro ativado.");
+});
+
 function queueStateSave(snapshot) {
   if (databaseWriteBlocked) return;
   saveQueue = saveQueue
@@ -1540,6 +1563,16 @@ document.getElementById("film-compatibility-search").addEventListener("input", r
 document.getElementById("film-compatibility-brand").addEventListener("change", renderFilmCompatibility);
 document.getElementById("customer-search").addEventListener("input", renderCustomers);
 document.querySelectorAll('input[type="tel"]').forEach((input) => input.addEventListener("input", formatPhoneInput));
+document.getElementById("login-email").addEventListener("input", (event) => {
+  const digits = event.target.value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length === 11 && isValidCpf(digits)) {
+    event.target.value = formatCpf(digits);
+  } else if (digits.length >= 10) {
+    event.target.value = formatPhone(digits);
+  } else {
+    event.target.value = digits;
+  }
+});
 document.getElementById("customer-document").addEventListener("input", (event) => {
   event.target.value = formatCpf(event.target.value);
   validateCustomerCpf(event.target);
@@ -1907,17 +1940,47 @@ document.getElementById("login-form").addEventListener("submit", async (event) =
   button.disabled = true;
   document.getElementById("login-error").hidden = true;
   try {
-    const { error } = await supabaseClient.auth.signInWithPassword({
-      email: document.getElementById("login-email").value.trim(),
-      password: document.getElementById("login-password").value,
-    });
-    if (error) throw error;
+    const identifier = document.getElementById("login-email").value.trim();
+    const digits = identifier.replace(/\D/g, "");
+    const password = document.getElementById("login-password").value;
+    let loginError = null;
+    let cpfAttempted = false;
+
+    if (digits.length === 11 && isValidCpf(digits)) {
+      const { data: resolvedEmail, error: resolutionError } = await supabaseClient.rpc(
+        "resolve_login_identifier",
+        { p_identifier: digits }
+      );
+      if (resolutionError) throw resolutionError;
+      if (resolvedEmail) {
+        cpfAttempted = true;
+        const result = await supabaseClient.auth.signInWithPassword({
+          email: resolvedEmail,
+          password,
+        });
+        loginError = result.error;
+      }
+    }
+
+    if (!cpfAttempted) {
+      if (digits.length < 10) {
+        throw new Error("Informe um telefone válido ou um CPF válido.");
+      }
+      const phone = `+55${digits}`;
+      const result = await supabaseClient.auth.signInWithPassword({
+        phone,
+        password,
+      });
+      loginError = result.error;
+    }
+
+    if (loginError) throw loginError;
     await loadWorkspace();
     document.getElementById("login-password").value = "";
   } catch (error) {
     console.error("Falha na autenticação ou no carregamento do banco:", error);
     showLoginError(error.message === "Invalid login credentials"
-      ? "E-mail ou senha incorretos."
+      ? "CPF/telefone ou senha incorretos."
       : "Não foi possível entrar ou carregar os dados. Confira a conexão e tente novamente.");
     const { error: signOutError } = await supabaseClient.auth.signOut();
     if (signOutError) console.error("Não foi possível encerrar a sessão após a falha:", signOutError);

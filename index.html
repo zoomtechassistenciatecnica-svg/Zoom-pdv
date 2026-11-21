@@ -5,6 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#020815">
   <title>Zoomtech PDV</title>
+  <script>
+    try {
+      const savedTheme = localStorage.getItem("zoomtech-theme");
+      document.documentElement.dataset.theme = savedTheme === "light" || savedTheme === "dark"
+        ? savedTheme
+        : (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+    } catch (_) {
+      document.documentElement.dataset.theme = "dark";
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -63,8 +73,8 @@
         <h2>Acesse sua plataforma</h2>
         <p class="login-intro">Entre com seus dados para continuar.</p>
         <form id="login-form" class="login-form">
-          <label for="login-email">E-mail</label>
-          <div class="login-input-wrap"><span aria-hidden="true">✉</span><input id="login-email" name="email" type="email" autocomplete="username" placeholder="voce@empresa.com.br" required></div>
+          <label for="login-email">CPF ou telefone</label>
+          <div class="login-input-wrap"><span aria-hidden="true">♙</span><input id="login-email" name="identifier" type="text" inputmode="numeric" autocomplete="username" placeholder="000.000.000-00 ou (11) 99999-9999" maxlength="18" required></div>
           <label for="login-password">Senha</label>
           <div class="login-input-wrap"><span aria-hidden="true">⌑</span><input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" required><button class="password-toggle" id="password-toggle" type="button" aria-label="Mostrar senha" aria-pressed="false">◉</button></div>
           <p class="login-error" id="login-error" role="alert" hidden></p>
@@ -101,7 +111,7 @@
         <button class="mobile-menu" id="mobile-menu" aria-label="Abrir menu">☰</button>
         <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-label="Recolher menu lateral" aria-controls="sidebar" aria-expanded="true" title="Recolher menu lateral">‹</button>
         <div class="breadcrumb"><span>Laboratótio principal</span><span class="crumb-separator">/</span><strong id="breadcrumb-current">Visão geral</strong></div>
-        <div class="topbar-actions"><span class="today-label" id="today-label"></span><button class="icon-button notification-button" aria-label="Notificações">♧<i></i></button><button class="logout-button" id="logout-button" type="button">Sair</button></div>
+        <div class="topbar-actions"><span class="today-label" id="today-label"></span><button class="icon-button theme-toggle" id="theme-toggle" type="button" aria-label="Ativar modo claro" title="Alternar modo claro ou escuro"><span class="theme-toggle-icon" aria-hidden="true">☀</span></button><button class="icon-button notification-button" aria-label="Notificações">♧<i></i></button><button class="logout-button" id="logout-button" type="button">Sair</button></div>
       </header>
 
       <div class="content">
