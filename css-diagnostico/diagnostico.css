@@ -44,6 +44,56 @@ footer{line-height:1.5;text-align:center;margin:24px 0}
 .touch-board{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
 .touch-cell{aspect-ratio:1;border:1px solid #475569;border-radius:7px;background:#1e293b}
 .touch-cell.hit{background:#16a34a;border-color:#4ade80}
+.test-dialog.samsung-touch-dialog{
+  width:100vw;
+  height:100vh;
+  max-width:none;
+  max-height:none;
+  margin:0;
+  border:0;
+  border-radius:0;
+  background:#fff;
+  color:#111;
+  padding:0;
+  overflow:hidden;
+}
+.test-dialog.samsung-touch-dialog::backdrop{background:#fff}
+.test-dialog.samsung-touch-dialog .dialog-head,
+.test-dialog.samsung-touch-dialog .dialog-actions{display:none}
+.test-dialog.samsung-touch-dialog .dialog-content{
+  width:100%;
+  height:100%;
+  padding:0;
+  color:#111;
+  overflow:hidden;
+  touch-action:none;
+  user-select:none;
+  -webkit-user-select:none;
+}
+.samsung-touch-test{
+  position:relative;
+  width:100%;
+  height:100%;
+  background:#fff;
+  overflow:hidden;
+  touch-action:none;
+  cursor:crosshair;
+  display:block;
+}
+.samsung-touch-point{
+  position:absolute;
+  width:clamp(8px,1.2vmin,12px);
+  height:clamp(8px,1.2vmin,12px);
+  border:1.5px solid #050505;
+  background:#fff;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+}
+.samsung-touch-point.touched{
+  border-color:#00a83e;
+  background:#18c95a;
+  box-shadow:0 0 4px #18c95a66;
+}
 .color-stage{position:fixed;inset:0;z-index:10;background:#fff;display:grid;place-items:center;color:#111}
 .color-stage button{position:absolute;bottom:25px;padding:12px 18px;border:0;border-radius:10px;background:#111;color:#fff}
 .result-note{font-size:13px;color:#cbd5e1}

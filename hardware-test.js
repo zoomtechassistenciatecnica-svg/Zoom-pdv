@@ -87,15 +87,153 @@ function runScreen(key) {
   }
 }
 function runTouch(key) {
-  openTest(testNames[key], `<p>Toque em todas as áreas. Elas ficarão verdes quando detectadas.</p><div class="touch-board" id="touchBoard"></div><p id="touchCount">0 de 24 áreas testadas</p>`);
-  const board = document.getElementById("touchBoard");
-  for (let i = 0; i < 24; i += 1) {
-    const cell = document.createElement("button");
-    cell.className = "touch-cell";
-    cell.onclick = () => { cell.classList.add("hit"); document.getElementById("touchCount").textContent = `${board.querySelectorAll(".hit").length} de 24 áreas testadas`; };
-    board.append(cell);
-  }
-  setButtons([{ label: "Concluir teste", primary: true, onClick: () => { const hit = board.querySelectorAll(".hit").length; setResult(key, hit === 24 ? "approved" : "failed", { areas_touched: hit, total_areas: 24 }); dialog.close(); } }]);
+  openTest(testNames[key], `<canvas class="samsung-touch-test" id="samsungTouchTest" aria-label="Teste de toque da tela"></canvas>`);
+  dialog.classList.add("samsung-touch-dialog");
+  setButtons([]);
+  const board = document.getElementById("samsungTouchTest");
+  const context = board.getContext("2d");
+  const points = [];
+  const strokes = [];
+  let drawing = false;
+  let activeStroke = null;
+  let completedTimer = null;
+
+  const resizeAndDraw = () => {
+    const rect = board.getBoundingClientRect();
+    const ratio = window.devicePixelRatio || 1;
+    board.width = Math.round(rect.width * ratio);
+    board.height = Math.round(rect.height * ratio);
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    points.length = 0;
+
+    const width = rect.width;
+    const height = rect.height;
+    const unit = Math.max(7, Math.min(9, width / 28));
+    const size = Math.max(12, Math.min(18, width / 14));
+    const side = Math.max(10, unit * 1.15);
+    const top = Math.max(7, unit * 0.85);
+    const bottom = height - top;
+    const left = side;
+    const right = width - side;
+
+    context.clearRect(0, 0, width, height);
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, width, height);
+    context.strokeStyle = "#b8bfc7";
+    context.lineWidth = 1;
+
+    const addPoint = (x, y) => {
+      points.push({ x, y, touched: false, size });
+    };
+
+    for (let x = left + unit; x < right - unit / 2; x += unit) {
+      addPoint(x, top);
+      addPoint(x, bottom);
+    }
+    for (let y = top + unit; y < bottom - unit / 2; y += unit) {
+      addPoint(left, y);
+      addPoint(right, y);
+    }
+
+    for (let i = 0; i <= 38; i += 1) {
+      const progress = i / 38;
+      addPoint(left + (right - left) * progress, top + (bottom - top) * progress);
+      addPoint(right - (right - left) * progress, top + (bottom - top) * progress);
+    }
+
+    drawBoard();
+  };
+
+  const drawBoard = () => {
+    const rect = board.getBoundingClientRect();
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, rect.width, rect.height);
+
+
+    context.strokeStyle = "#b8bfc7";
+    context.lineWidth = 1;
+    points.forEach((point) => {
+      if (point.touched) {
+        context.fillStyle = "#00FF00";
+        context.fillRect(point.x - point.size / 2, point.y - point.size / 2, point.size, point.size);
+        context.strokeStyle = "#00FF00";
+        context.strokeRect(point.x - point.size / 2, point.y - point.size / 2, point.size, point.size);
+      } else {
+        context.strokeRect(point.x - point.size / 2, point.y - point.size / 2, point.size, point.size);
+      }
+      context.strokeStyle = "#b8bfc7";
+    });
+
+    strokes.forEach((stroke) => {
+      if (stroke.points.length < 2) return;
+      context.beginPath();
+      context.moveTo(stroke.points[0].x, stroke.points[0].y);
+      for (let i = 1; i < stroke.points.length; i += 1) context.lineTo(stroke.points[i].x, stroke.points[i].y);
+      context.strokeStyle = stroke.color;
+      context.lineWidth = Math.max(1.5, board.getBoundingClientRect().width / 170);
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.stroke();
+    });
+  };
+
+  const getCanvasPoint = (event) => {
+    const rect = board.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  };
+
+  const markTouchedPoints = (point) => {
+    points.forEach((target) => {
+      if (target.touched) return;
+      const distance = Math.hypot(point.x - target.x, point.y - target.y);
+      if (distance <= Math.max(10, target.size * 2.2)) target.touched = true;
+    });
+    drawBoard();
+
+    const touched = points.filter((target) => target.touched).length;
+    if (touched === points.length && !completedTimer) {
+      completedTimer = window.setTimeout(() => {
+        dialog.classList.remove("samsung-touch-dialog");
+        setResult(key, "approved", { points_tested: points.length, points_touched: touched, method: "trace de toque da tela" });
+        dialog.close();
+      }, 350);
+    }
+  };
+
+  board.addEventListener("pointerdown", (event) => {
+    drawing = true;
+    board.setPointerCapture?.(event.pointerId);
+    activeStroke = { color: strokes.length === 0 ? "#ef2b32" : "#00FF00", points: [] };
+    strokes.push(activeStroke);
+    const point = getCanvasPoint(event);
+    activeStroke.points.push(point);
+    markTouchedPoints(point);
+  });
+  board.addEventListener("pointermove", (event) => {
+    if (!drawing || !activeStroke) return;
+    const point = getCanvasPoint(event);
+    activeStroke.points.push(point);
+    markTouchedPoints(point);
+  });
+  board.addEventListener("pointerup", () => {
+    drawing = false;
+    activeStroke = null;
+  });
+  board.addEventListener("pointercancel", () => {
+    drawing = false;
+    activeStroke = null;
+  });
+  board.addEventListener("contextmenu", (event) => event.preventDefault());
+
+  const resizeObserver = new ResizeObserver(resizeAndDraw);
+  resizeObserver.observe(board);
+  resizeAndDraw();
+
+  activeCleanup = () => {
+    resizeObserver.disconnect();
+    if (completedTimer) window.clearTimeout(completedTimer);
+    completedTimer = null;
+  };
 }
 async function runCamera(key) {
   const front = key === "cameraFront";
@@ -215,6 +353,7 @@ document.getElementById("closeDialog").addEventListener("click", () => {
   dialog.close();
 });
 dialog.addEventListener("close", () => {
+  dialog.classList.remove("samsung-touch-dialog");
   if (activeCleanup) { activeCleanup(); activeCleanup = null; }
 });
 document.getElementById("resetBtn").addEventListener("click", () => {
