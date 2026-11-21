@@ -73,14 +73,28 @@
         <h2>Acesse sua plataforma</h2>
         <p class="login-intro">Entre com seus dados para continuar.</p>
         <form id="login-form" class="login-form">
-          <label for="login-email">CPF ou telefone</label>
-          <div class="login-input-wrap"><span aria-hidden="true">♙</span><input id="login-email" name="identifier" type="text" inputmode="numeric" autocomplete="username" placeholder="000.000.000-00 ou (11) 99999-9999" maxlength="18" required></div>
-          <label for="login-password">Senha</label>
-          <div class="login-input-wrap"><span aria-hidden="true">⌑</span><input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" required><button class="password-toggle" id="password-toggle" type="button" aria-label="Mostrar senha" aria-pressed="false">◉</button></div>
-          <p class="login-error" id="login-error" role="alert" hidden></p>
-          <button class="login-submit" id="login-submit" type="submit">Entrar na plataforma <span aria-hidden="true">→</span></button>
+          <div id="login-credentials">
+            <label for="login-email">CPF ou telefone</label>
+            <div class="login-input-wrap"><span aria-hidden="true">♙</span><input id="login-email" name="identifier" type="text" inputmode="numeric" autocomplete="username" placeholder="000.000.000-00 ou (11) 99999-9999" maxlength="18" required></div>
+            <label for="login-password">Senha</label>
+            <div class="login-input-wrap"><span aria-hidden="true">⌑</span><input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" required><button class="password-toggle" id="password-toggle" type="button" aria-label="Mostrar senha" aria-pressed="false">◉</button></div>
+            <p class="login-error" id="login-error" role="alert" hidden></p>
+            <button class="login-submit" id="login-submit" type="submit">Entrar na plataforma <span aria-hidden="true">→</span></button>
+          </div>
+          <section class="mfa-step" id="mfa-step" hidden aria-live="polite">
+            <h3 id="mfa-title">Verificação em duas etapas</h3>
+            <p id="mfa-description">Insira o código de seis dígitos do seu app autenticador.</p>
+            <img id="mfa-qr-code" alt="QR code para configurar o app autenticador" hidden>
+            <p class="mfa-secret-label" id="mfa-secret-label" hidden>Se não puder escanear, informe esta chave manualmente:</p>
+            <code class="mfa-secret" id="mfa-secret" hidden></code>
+            <label for="mfa-code">Código do autenticador</label>
+            <input id="mfa-code" class="mfa-code-input" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000">
+            <p class="login-error" id="mfa-error" role="alert" hidden></p>
+            <button class="login-submit" id="mfa-verify" type="button">Validar código <span aria-hidden="true">→</span></button>
+            <button class="mfa-cancel" id="mfa-cancel" type="button">Cancelar e sair</button>
+          </section>
         </form>
-        <p class="login-security-note"><span aria-hidden="true">ⓘ</span> Acesso protegido. As contas são criadas pelo administrador e os dados ficam sincronizados no banco.</p>
+        <p class="login-security-note"><span aria-hidden="true">ⓘ</span> Acesso protegido com senha e verificação em duas etapas pelo Google Authenticator ou outro app compatível com TOTP.</p>
       </div>
       <span class="login-copyright">© 2026 Zoom tech · Assistência técnica</span>
     </section>

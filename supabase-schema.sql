@@ -13,21 +13,23 @@ alter table public.pdv_data enable row level security;
 revoke all on table public.pdv_data from anon, authenticated;
 grant select, insert, update on table public.pdv_data to authenticated;
 
+-- No Supabase Dashboard, habilite Authentication > Sign In / Providers > Authenticator App (TOTP)
+-- e defina o nível mínimo de garantia (MFA) como AAL2. As políticas abaixo também exigem aal2.
 drop policy if exists "Authenticated users can read store data" on public.pdv_data;
 create policy "Authenticated users can read store data"
   on public.pdv_data for select to authenticated
-  using ((select auth.uid()) is not null);
+  using ((select auth.uid()) is not null and (select auth.jwt() ->> 'aal') = 'aal2');
 
 drop policy if exists "Authenticated users can create store data" on public.pdv_data;
 create policy "Authenticated users can create store data"
   on public.pdv_data for insert to authenticated
-  with check ((select auth.uid()) is not null);
+  with check ((select auth.uid()) is not null and (select auth.jwt() ->> 'aal') = 'aal2');
 
 drop policy if exists "Authenticated users can update store data" on public.pdv_data;
 create policy "Authenticated users can update store data"
   on public.pdv_data for update to authenticated
-  using ((select auth.uid()) is not null)
-  with check ((select auth.uid()) is not null);
+  using ((select auth.uid()) is not null and (select auth.jwt() ->> 'aal') = 'aal2')
+  with check ((select auth.uid()) is not null and (select auth.jwt() ->> 'aal') = 'aal2');
 
 create or replace function public.set_pdv_data_updated_at()
 returns trigger
