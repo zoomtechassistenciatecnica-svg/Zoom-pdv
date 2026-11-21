@@ -87,6 +87,17 @@ function runScreen(key) {
   }
 }
 function runTouch(key) {
+  const enterFullScreen = async () => {
+    const fullscreenElement = document.documentElement;
+    if (!document.fullscreenElement && fullscreenElement.requestFullscreen) {
+      try {
+        await fullscreenElement.requestFullscreen();
+      } catch (error) {
+        console.warn("Não foi possível entrar em tela cheia:", error);
+      }
+    }
+  };
+  enterFullScreen();
   openTest(testNames[key], `<canvas class="samsung-touch-test" id="samsungTouchTest" aria-label="Teste de toque da tela"></canvas>`);
   dialog.classList.add("samsung-touch-dialog");
   setButtons([]);
@@ -233,6 +244,9 @@ function runTouch(key) {
     resizeObserver.disconnect();
     if (completedTimer) window.clearTimeout(completedTimer);
     completedTimer = null;
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
   };
 }
 async function runCamera(key) {
