@@ -44,3 +44,27 @@ drop trigger if exists set_pdv_data_updated_at on public.pdv_data;
 create trigger set_pdv_data_updated_at
   before update on public.pdv_data
   for each row execute function public.set_pdv_data_updated_at();
+
+create table if not exists public.hardware_diagnostics (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  test_token text,
+  results jsonb not null,
+  device jsonb not null,
+  summary jsonb not null
+);
+
+alter table public.hardware_diagnostics
+  add column if not exists test_token text;
+
+alter table public.hardware_diagnostics enable row level security;
+
+revoke all on table public.hardware_diagnostics from anon, authenticated;
+grant insert on table public.hardware_diagnostics to anon, authenticated;
+
+drop policy if exists "Allow visitors to submit hardware diagnostics" on public.hardware_diagnostics;
+create policy "Allow visitors to submit hardware diagnostics"
+  on public.hardware_diagnostics
+  for insert
+  to anon, authenticated
+  with check (true);

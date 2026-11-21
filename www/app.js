@@ -165,7 +165,7 @@ function setPage(name) {
   document.querySelector(".app-shell").classList.toggle("sales-mode", name === "sales");
   document.querySelectorAll(".page").forEach((item) => item.classList.toggle("active", item === page));
   document.querySelectorAll(".nav-link").forEach((item) => item.classList.toggle("active", item.dataset.page === name));
-  document.getElementById("breadcrumb-current").textContent = { dashboard: "Visão geral", sales: "Vendas", "service-orders": "Ordens de serviço", "phone-deals": "Compra e Venda", products: "Estoque", "film-compatibility": "Compatibilidade de películas", customers: "Clientes", reports: "Relatórios" }[name];
+  document.getElementById("breadcrumb-current").textContent = { dashboard: "Visão geral", sales: "Vendas", "service-orders": "Ordens de serviço", "phone-deals": "Compra e Venda", products: "Estoque", "film-compatibility": "Compatibilidade de películas", customers: "Clientes", "hardware-test": "Teste de Hardware", reports: "Relatórios" }[name];
   document.getElementById("sidebar").classList.remove("open");
   if (name === "dashboard") renderDashboard();
   if (name === "sales") renderSales();
@@ -1698,6 +1698,96 @@ document.querySelectorAll(".notification-button").forEach((button) => button.add
 document.querySelectorAll(".modal").forEach((dialog) => dialog.addEventListener("click", (event) => {
   if (event.target === dialog) dialog.close();
 }));
+document.querySelectorAll(".hardware-test-button").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (button.classList.contains("passed")) {
+      button.classList.remove("passed");
+      button.classList.add("failed");
+    } else if (button.classList.contains("failed")) {
+      button.classList.remove("failed");
+    } else {
+      button.classList.add("passed");
+    }
+  });
+});
+document.querySelectorAll(".hardware-mode").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll(".hardware-mode").forEach((item) => item.classList.remove("active"));
+    button.classList.add("active");
+    const mode = button.dataset.hardwareMode;
+    document.querySelectorAll(".hardware-test-button").forEach((test) => {
+      test.hidden = mode !== "all"
+        && !((mode === "passed" && test.classList.contains("passed"))
+          || (mode === "failed" && test.classList.contains("failed"))
+          || (mode === "untested" && !test.classList.contains("passed") && !test.classList.contains("failed")));
+    });
+  });
+});
+document.getElementById("hardware-reset").addEventListener("click", () => {
+  document.querySelectorAll(".hardware-test-button").forEach((test) => test.classList.remove("passed", "failed"));
+  document.querySelectorAll(".hardware-mode").forEach((item) => item.classList.toggle("active", item.dataset.hardwareMode === "all"));
+  document.querySelectorAll(".hardware-test-button").forEach((test) => { test.hidden = false; });
+  toast("Testes de hardware reiniciados.");
+});
+function hardwareTestLink() {
+  const url = new URL(window.location.href);
+  url.pathname = url.pathname.replace(/[^/]*$/, "hardware-test.html");
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("test", globalThis.crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()));
+  return url.toString();
+}
+document.getElementById("hardware-share").addEventListener("click", () => {
+  const link = hardwareTestLink();
+  document.getElementById("hardware-share-link").value = link;
+  document.getElementById("hardware-share-qr").src =
+    `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(link)}`;
+  document.getElementById("hardware-share-modal").showModal();
+});
+document.getElementById("hardware-copy-link").addEventListener("click", async () => {
+  const input = document.getElementById("hardware-share-link");
+  await navigator.clipboard.writeText(input.value);
+  toast("Link copiado.");
+});
+document.getElementById("hardware-whatsapp").addEventListener("click", () => {
+  const link = document.getElementById("hardware-share-link").value;
+  window.open(`https://wa.me/?text=${encodeURIComponent(`Olá! Conclua o teste de hardware pelo celular neste link: ${link}`)}`, "_blank");
+});
+document.getElementById("hardware-open-complete").addEventListener("click", () => {
+  window.open(hardwareTestLink(), "_blank", "noopener");
+});
+function initializeClientHardwareTest() {
+  if (!/hardware-test\.html$/i.test(window.location.pathname)
+    && new URLSearchParams(window.location.search).get("hardware") !== "1") return false;
+  document.getElementById("login-screen").hidden = true;
+  document.querySelector(".app-shell").hidden = true;
+  document.getElementById("client-hardware-test").hidden = false;
+
+  document.querySelectorAll("#client-hardware-grid .hardware-test-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.classList.contains("passed")) {
+        button.classList.remove("passed");
+        button.classList.add("failed");
+      } else if (button.classList.contains("failed")) {
+        button.classList.remove("failed");
+      } else {
+        button.classList.add("passed");
+      }
+    });
+  });
+  document.getElementById("client-hardware-submit").addEventListener("click", () => {
+    const results = [...document.querySelectorAll("#client-hardware-grid .hardware-test-button")].map((button) => ({
+      name: button.dataset.hardware,
+      status: button.classList.contains("passed") ? "Aprovado" : button.classList.contains("failed") ? "Falha" : "Pendente",
+    }));
+    const pending = results.filter((item) => item.status === "Pendente").length;
+    const summary = pending
+      ? `Diagnóstico registrado: ${pending} teste(s) pendente(s).`
+      : "Diagnóstico enviado com sucesso.";
+    alert(summary);
+  });
+  return true;
+}
 async function loadWorkspace() {
   const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
   if (userError) throw userError;
@@ -1860,4 +1950,4 @@ renderSalesHeader();
 setInterval(updateGreeting, 60000);
 setInterval(renderSalesHeader, 1000);
 renderDashboard();
-initializeAuthentication();
+if (!initializeClientHardwareTest()) initializeAuthentication();

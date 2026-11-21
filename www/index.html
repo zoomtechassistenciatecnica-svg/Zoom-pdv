@@ -15,6 +15,35 @@
   <script src="app.js" defer></script>
 </head>
 <body>
+  <main class="client-hardware-test" id="client-hardware-test" hidden>
+    <section class="client-hardware-header">
+      <img src="Logo.png" alt="Zoom tech">
+      <div>
+        <p class="eyebrow">DIAGNÓSTICO REMOTO</p>
+        <h1>Teste de Hardware</h1>
+      </div>
+    </section>
+    <p class="client-hardware-instructions">Toque em cada item do celular para indicar o resultado. Você poderá alterar até enviar o diagnóstico.</p>
+    <div class="hardware-test-grid client-hardware-grid" id="client-hardware-grid">
+      <button type="button" class="hardware-test-button" data-hardware="Tela - vermelha"><span>Tela vermelha</span><small>Visualização</small></button>
+      <button type="button" class="hardware-test-button" data-hardware="Tela - verde"><span>Tela verde</span><small>Visualização</small></button>
+      <button type="button" class="hardware-test-button" data-hardware="Tela - azul"><span>Tela azul</span><small>Visualização</small></button>
+      <button type="button" class="hardware-test-button" data-hardware="Alto-falante"><span>Alto-falante</span><small>Som</small></button>
+      <button type="button" class="hardware-test-button" data-hardware="Microfone"><span>Microfone</span><small>Som</small></button>
+      <button type="button" class="hardware-test-button" data-hardware="Câmera traseira"><span>Câmera traseira</span><small>Câmera</small></button>
+      <button type="button" class="hardware-test-button" data-hardware="Câmera frontal"><span>Câmera frontal</span><small>Câmera</small></button>
+      <button type="button" class="hardware-test-button" data-hardware="Vibração"><span>Vibração</span><small>Mecânico</small></button>
+      <button type="button" class="hardware-test-button" data-hardware="Carga"><span>Carga</span><small>Conector</small></button>
+      <button type="button" class="hardware-test-button" data-hardware="Wi-Fi"><span>Wi-Fi</span><small>Conectividade</small></button>
+      <button type="button" class="hardware-test-button" data-hardware="Bluetooth"><span>Bluetooth</span><small>Conectividade</small></button>
+      <button type="button" class="hardware-test-button" data-hardware="Sensores"><span>Sensores</span><small>Giroscópio / proximidade</small></button>
+      <button type="button" class="hardware-test-button" data-hardware="Botões"><span>Botões</span><small>Volume / energia</small></button>
+      <button type="button" class="hardware-test-button" data-hardware="Touch"><span>Touch</span><small>Toque da tela</small></button>
+      <button type="button" class="hardware-test-button" data-hardware="NFC"><span>NFC</span><small>Conectividade</small></button>
+    </div>
+    <div class="client-hardware-legend"><span><i class="legend-pending"></i>Pendente</span><span><i class="legend-passed"></i>Aprovado</span><span><i class="legend-failed"></i>Com falha</span></div>
+    <button type="button" class="checkout-button client-hardware-submit" id="client-hardware-submit">Enviar diagnóstico <span>✓</span></button>
+  </main>
   <div class="login-screen" id="login-screen">
     <section class="login-story" aria-label="Zoom tech PDV">
       <a class="login-brand" href="#" aria-label="Zoom tech, início">
@@ -62,6 +91,7 @@
         <button class="nav-link" data-page="products"><span class="nav-icon">▤</span><span class="nav-label">Estoque</span></button>
         <button class="nav-link" data-page="film-compatibility"><span class="nav-icon">▦</span><span class="nav-label">Compatibilidade de películas</span></button>
         <button class="nav-link" data-page="customers"><span class="nav-icon">♙</span><span class="nav-label">Clientes</span></button>
+        <button class="nav-link" data-page="hardware-test"><span class="nav-icon">⚙</span><span class="nav-label">Teste de Hardware</span></button>
         <button class="nav-link" data-page="reports"><span class="nav-icon">▥</span><span class="nav-label">Relatórios</span></button>
       </nav>
     </aside>
@@ -245,6 +275,45 @@
           </article>
         </section>
 
+        <section class="page" id="page-hardware-test">
+          <div class="hardware-test-page">
+            <div class="hardware-test-heading">
+              <div>
+                <p class="eyebrow">DIAGNÓSTICO DO APARELHO</p>
+                <h1>Teste de Hardware</h1>
+                <p class="heading-subtitle">Marque cada componente conforme o resultado do teste.</p>
+              </div>
+              <div class="hardware-test-actions">
+                <button type="button" class="button button-primary" id="hardware-share">Compartilhar com cliente</button>
+                <button type="button" class="button button-primary" id="hardware-open-complete">Abrir diagnóstico completo</button>
+                <button type="button" class="button button-secondary" id="hardware-reset">↻ Reiniciar</button>
+              </div>
+            </div>
+
+            <div class="hardware-modes" aria-label="Modo de exibição">
+              <button type="button" class="hardware-mode active" data-hardware-mode="all">Todos</button>
+              <button type="button" class="hardware-mode hardware-mode-red" data-hardware-mode="failed">Falhas</button>
+              <button type="button" class="hardware-mode hardware-mode-green" data-hardware-mode="passed">Aprovados</button>
+              <button type="button" class="hardware-mode hardware-mode-blue" data-hardware-mode="untested">Pendentes</button>
+            </div>
+
+            <div class="hardware-test-grid" id="hardware-test-grid">
+              <button type="button" class="hardware-test-button" data-hardware="RED"><span>Red</span><small>Teste da tela</small></button>
+              <button type="button" class="hardware-test-button" data-hardware="GREEN"><span>Green</span><small>Teste da tela</small></button>
+              <button type="button" class="hardware-test-button" data-hardware="BLUE"><span>Blue</span><small>Teste da tela</small></button>
+              <button type="button" class="hardware-test-button" data-hardware="Receiver"><span>Receiver</span><small>Sensor</small></button>
+              <button type="button" class="hardware-test-button" data-hardware="Vibration"><span>Vibration</span><small>Tocar</small></button>
+              <button type="button" class="hardware-test-button" data-hardware="Mega cam"><span>Megacam</span><small>Speake/Flash</small></button>
+              <button type="button" class="hardware-test-button" data-hardware="Sub key"><span>Sub key</span><small>Print can</small></button>
+              <button type="button" class="hardware-test-button" data-hardware="Print cam"><span>Print cam</span><small>GPS sensor</small></button>
+              <button type="button" class="hardware-test-button" data-hardware="Dimelight test"><span>Dimelight test</span><small>Black</small></button>
+              <button type="button" class="hardware-test-button" data-hardware="Halt"><span>Halt</span><small>Halt</small></button>
+              <button type="button" class="hardware-test-button" data-hardware="Hall IC"><span>Hall IC</span><small>Earpiece</small></button>
+              <button type="button" class="hardware-test-button" data-hardware="Version"><span>Version</span><small>NFC</small></button>
+            </div>
+          </div>
+        </section>
+
         <section class="page" id="page-customers">
           <div class="page-heading heading-with-action"><div><p class="eyebrow">RELACIONAMENTO</p><h1>Clientes</h1><p class="heading-subtitle">Acompanhe clientes, aparelhos e serviços realizados.</p></div><button class="button button-primary" id="add-customer-button"><span>＋</span> Novo cliente</button></div>
           <div class="stats-grid compact-stats"><article class="stat-card"><div class="stat-top"><span>Total de clientes</span><span class="stat-icon purple">♙</span></div><strong class="stat-value" id="customer-total">0</strong><div class="stat-foot"><span>Na sua base de clientes</span></div></article><article class="stat-card"><div class="stat-top"><span>Clientes recorrentes</span><span class="stat-icon blue">↻</span></div><strong class="stat-value" id="returning-customers">0</strong><div class="stat-foot"><span>Mais de uma compra registrada</span></div></article><article class="stat-card"><div class="stat-top"><span>Vendas para clientes</span><span class="stat-icon green">R$</span></div><strong class="stat-value" id="customer-revenue">R$ 0,00</strong><div class="stat-foot"><span>Valor total dos pedidos identificados</span></div></article></div>
@@ -262,6 +331,21 @@
       <footer class="app-footer"><span>© 2026 Zoom tech · Assistência técnica</span><span>Cuide bem de cada aparelho <span class="footer-heart">♥</span></span></footer>
     </main>
   </div>
+  <dialog class="modal hardware-share-modal" id="hardware-share-modal">
+    <div class="modal-heading">
+      <div><p class="eyebrow">DIAGNÓSTICO REMOTO</p><h2>Enviar teste ao cliente</h2></div>
+      <button class="modal-close" type="button" data-close="hardware-share-modal" aria-label="Fechar">×</button>
+    </div>
+    <div class="hardware-share-content">
+      <img id="hardware-share-qr" alt="QR code do teste de hardware">
+      <label class="field-label" for="hardware-share-link">Link do teste</label>
+      <input class="input-control" id="hardware-share-link" readonly>
+    </div>
+    <div class="modal-actions">
+      <button class="button button-primary" id="hardware-copy-link" type="button">Copiar link</button>
+      <button class="button button-secondary" id="hardware-whatsapp" type="button">Abrir WhatsApp</button>
+    </div>
+  </dialog>
   <div class="toast-region" id="toast-region" aria-live="polite"></div>
   <dialog class="modal" id="manual-sale-item-modal"><form id="manual-sale-item-form" method="dialog"><div class="modal-heading"><div><p class="eyebrow">VENDA AVULSA</p><h2>Adicionar item sem cadastro</h2></div><button class="modal-close" type="button" data-close="manual-sale-item-modal" aria-label="Fechar">×</button></div><label class="field-label" for="manual-sale-item-name">Descrição do item *</label><input class="input-control" id="manual-sale-item-name" required maxlength="100" placeholder="Ex.: Serviço ou produto avulso"><div class="form-grid"><div><label class="field-label" for="manual-sale-item-price">Valor unitário (R$) *</label><input class="input-control" id="manual-sale-item-price" data-money-input type="text" inputmode="decimal" required></div><div><label class="field-label" for="manual-sale-item-quantity">Quantidade *</label><input class="input-control" id="manual-sale-item-quantity" type="number" min="1" step="1" value="1" required></div></div><div class="modal-actions"><button class="button button-secondary" type="button" data-close="manual-sale-item-modal">Cancelar</button><button class="button button-primary" type="submit">Adicionar à venda</button></div></form></dialog>
   <dialog class="modal" id="product-modal"><form id="product-form" method="dialog"><div class="modal-heading"><div><p class="eyebrow">CADASTRO DE PEÇAS E SERVIÇOS</p><h2 id="product-modal-title">Nova peça ou serviço</h2></div><button class="modal-close" type="button" data-close="product-modal" aria-label="Fechar">×</button></div><input id="product-id" type="hidden"><label class="field-label" for="product-kind">Tipo de item *</label><select class="input-control" id="product-kind"><option value="product">Peça / acessório (controla estoque)</option><option value="service">Serviço técnico (sem controle de estoque)</option></select><label class="field-label" for="product-name">Nome do item *</label><input class="input-control" id="product-name" required maxlength="80" placeholder="Ex.: Tela Samsung Galaxy A14"><div class="form-grid"><div><label class="field-label" for="product-category">Categoria *</label><input class="input-control" id="product-category" required maxlength="40" placeholder="Ex.: Telas, baterias, reparos"></div><div><label class="field-label" for="product-sku">Código / SKU</label><input class="input-control" id="product-sku" maxlength="30" placeholder="Ex.: TEL-A14"></div></div><div class="form-grid"><div><label class="field-label" for="product-price">Preço de venda (R$) *</label><input class="input-control" id="product-price" data-money-input type="text" inputmode="decimal" required></div><div id="product-cost-field"><label class="field-label" for="product-cost">Preço de custo (R$)</label><input class="input-control" id="product-cost" data-money-input type="text" inputmode="decimal" value="R$ 0,00"></div></div><div id="product-stock-field"><label class="field-label" for="product-stock">Quantidade em estoque *</label><input class="input-control" id="product-stock" type="number" min="0" step="1" required value="0"></div><div class="product-photo-field"><label class="field-label" for="product-image-file">Foto do produto</label><input class="input-control" id="product-image-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><input id="product-image-data" type="hidden"><div class="product-photo-preview-wrap" id="product-photo-preview-wrap" hidden><img class="product-photo-preview" id="product-photo-preview" alt="Pré-visualização da foto do produto"><button class="button button-secondary" id="remove-product-photo" type="button">Remover foto</button></div><small class="product-photo-hint">JPG, PNG, WebP ou GIF. Máximo de 5 MB.</small></div><div class="modal-actions"><button class="button button-secondary" type="button" data-close="product-modal">Cancelar</button><button class="button button-primary" type="submit">Salvar item</button></div></form></dialog>

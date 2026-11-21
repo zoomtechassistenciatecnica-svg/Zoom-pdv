@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#020815">
+  <title>Teste de Hardware | Zoom tech</title>
+  <link rel="stylesheet" href="css-diagnostico/diagnostico.css">
+  <script src="supabase-config.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <div><p class="eyebrow">ZOOM TECH - ASSISTÊNCIA TÉCNICA</p><h1>Diagnóstico de hardware</h1><p class="muted">Teste os componentes deste aparelho.</p></div>
+      <span class="live-dot" aria-label="Módulo pronto"></span>
+    </header>
+    <section class="summary card">
+      <div class="summary-line"><div><strong id="progressPercent">0%</strong><span class="muted small"> concluído</span></div><span id="progressCount" class="muted small">0 de 10 testes</span></div>
+      <div class="progress"><div id="progressBar"></div></div>
+      <div class="stats"><span><i class="dot ok"></i> <b id="approvedCount">0</b> aprovados</span><span><i class="dot fail"></i> <b id="failedCount">0</b> reprovados</span><span><i class="dot skip"></i> <b id="pendingCount">10</b> pendentes</span></div>
+    </section>
+    <section class="device card"><div><span class="muted small">APARELHO DETECTADO</span><strong id="deviceInfo">Coletando informações...</strong></div><button class="text-button" id="refreshInfo">Atualizar</button></section>
+    <section class="mode-picker card" id="modePicker"><h2>Como deseja realizar o diagnóstico?</h2><p class="muted small">Escolha o diagnóstico completo guiado ou teste somente um componente.</p><div class="mode-buttons"><button class="btn btn-primary" id="autoModeBtn">▶ Diagnóstico automático</button><button class="btn btn-secondary" id="individualModeBtn">Testes individuais</button></div></section>
+    <section id="individualArea" hidden><div class="section-heading"><h2>Testes disponíveis</h2><button class="text-button" id="backToModes">Voltar</button></div><section class="test-grid" id="testGrid">
+      <button class="test-card" data-test="screen"><span class="test-icon">▧</span><b>Tela / Cores</b><small>Pixels e cores</small><em class="status pending">Pendente</em></button>
+      <button class="test-card" data-test="touch"><span class="test-icon">☝</span><b>Touchscreen</b><small>Área de toque</small><em class="status pending">Pendente</em></button>
+      <button class="test-card" data-test="cameraFront"><span class="test-icon">◎</span><b>Câmera frontal</b><small>Imagem e vídeo</small><em class="status pending">Pendente</em></button>
+      <button class="test-card" data-test="cameraBack"><span class="test-icon">◉</span><b>Câmera traseira</b><small>Imagem e vídeo</small><em class="status pending">Pendente</em></button>
+      <button class="test-card" data-test="flash"><span class="test-icon">ϟ</span><b>Flash</b><small>Lanterna</small><em class="status pending">Pendente</em></button>
+      <button class="test-card" data-test="speaker"><span class="test-icon">♫</span><b>Alto-falante</b><small>Reprodução de som</small><em class="status pending">Pendente</em></button>
+      <button class="test-card" data-test="microphone"><span class="test-icon">🎙</span><b>Microfone</b><small>Gravação e retorno</small><em class="status pending">Pendente</em></button>
+      <button class="test-card" data-test="vibration"><span class="test-icon">〰</span><b>Vibração</b><small>Motor vibratório</small><em class="status pending">Pendente</em></button>
+      <button class="test-card" data-test="sensors"><span class="test-icon">⌖</span><b>Sensores</b><small>Movimento/orientação</small><em class="status pending">Pendente</em></button>
+      <button class="test-card" data-test="gps"><span class="test-icon">⌖</span><b>GPS</b><small>Geolocalização</small><em class="status pending">Pendente</em></button>
+    </section></section>
+    <section class="actions"><button class="btn btn-primary" id="finishBtn">Enviar diagnóstico</button><button class="btn btn-secondary" id="resetBtn">Limpar resultados</button><p id="saveMessage" class="muted small" role="status"></p></section>
+  </main>
+  <dialog id="testDialog" class="test-dialog"><div class="dialog-head"><div><p class="eyebrow">TESTE DE HARDWARE</p><h2 id="dialogTitle">Teste</h2></div><button class="close" id="closeDialog" aria-label="Fechar">×</button></div><div id="dialogContent" class="dialog-content"></div><div class="dialog-actions" id="dialogActions"></div></dialog>
+  <script src="hardware-test.js"></script>
+</body>
+</html>
