@@ -110,6 +110,7 @@ let toastTimer;
 let productImagePromise = Promise.resolve();
 let serviceOrderPattern = [];
 let customerCepRequestId = 0;
+let mfaChallenge = null;
 
 function applyTheme(theme) {
   const normalizedTheme = theme === "light" ? "light" : "dark";
@@ -1890,6 +1891,77 @@ function showLoginError(message) {
   error.hidden = false;
 }
 
+function resetMfaUI() {
+  mfaChallenge = null;
+  document.getElementById("login-credentials").hidden = false;
+  document.getElementById("mfa-step").hidden = true;
+  document.getElementById("mfa-code").value = "";
+  document.getElementById("mfa-error").hidden = true;
+  document.getElementById("mfa-qr-code").hidden = true;
+  document.getElementById("mfa-qr-code").removeAttribute("src");
+  document.getElementById("mfa-secret-label").hidden = true;
+  document.getElementById("mfa-secret").hidden = true;
+  document.getElementById("mfa-secret").textContent = "";
+}
+
+async function completeMfaAuthentication() {
+  await loadWorkspace();
+  document.getElementById("login-password").value = "";
+  resetMfaUI();
+}
+
+async function startMfaVerification() {
+  const { data: assurance, error: assuranceError } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (assuranceError) throw assuranceError;
+  if (assurance.currentLevel === "aal2") {
+    await completeMfaAuthentication();
+    return;
+  }
+
+  const { data: factorData, error: factorsError } = await supabaseClient.auth.mfa.listFactors();
+  if (factorsError) throw factorsError;
+
+  let factor = factorData.totp.find((item) => item.status === "verified");
+  let enrolling = false;
+  if (!factor) {
+    for (const pendingFactor of factorData.all.filter((item) => item.factor_type === "totp" && item.status !== "verified")) {
+      const { error } = await supabaseClient.auth.mfa.unenroll({ factorId: pendingFactor.id });
+      if (error) throw error;
+    }
+
+    const { data: enrolled, error: enrollError } = await supabaseClient.auth.mfa.enroll({
+      factorType: "totp",
+      friendlyName: "Zoom tech PDV",
+    });
+    if (enrollError) throw enrollError;
+    factor = enrolled;
+    enrolling = true;
+    document.getElementById("mfa-title").textContent = "Configure seu autenticador";
+    document.getElementById("mfa-description").textContent = "Escaneie o QR Code com Google Authenticator, Microsoft Authenticator ou outro app TOTP. Depois, informe o código de seis dígitos.";
+    const qrCode = document.getElementById("mfa-qr-code");
+    qrCode.src = enrolled.totp.qr_code;
+    qrCode.hidden = false;
+    const secret = document.getElementById("mfa-secret");
+    secret.textContent = enrolled.totp.secret;
+    secret.hidden = false;
+    document.getElementById("mfa-secret-label").hidden = false;
+  } else {
+    document.getElementById("mfa-title").textContent = "Verificação em duas etapas";
+    document.getElementById("mfa-description").textContent = "Insira o código de seis dígitos do app autenticador vinculado à sua conta.";
+    document.getElementById("mfa-secret-label").hidden = true;
+  }
+
+  const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({ factorId: factor.id });
+  if (challengeError) throw challengeError;
+  mfaChallenge = {
+    factorId: factor.id,
+    challengeId: challengeData.id,
+  };
+  document.getElementById("login-credentials").hidden = true;
+  document.getElementById("mfa-step").hidden = false;
+  document.getElementById("mfa-code").focus();
+}
+
 async function initializeAuthentication() {
   const config = globalThis.ZOOMTECH_SUPABASE_CONFIG;
   if (!config?.url || !config?.anonKey || !globalThis.supabase?.createClient) {
@@ -1919,13 +1991,14 @@ async function initializeAuthentication() {
       state = seedData();
       databaseVersion = null;
       databaseWriteBlocked = false;
+      resetMfaUI();
     }
   });
 
   try {
     const { data, error } = await supabaseClient.auth.getSession();
     if (error) throw error;
-    if (data.session) await loadWorkspace();
+    if (data.session) await startMfaVerification();
   } catch (error) {
     console.error("Não foi possível restaurar a sessão ou carregar os dados:", error);
     showLoginError("Não foi possível conectar ao banco. Confira a configuração e tente novamente.");
@@ -1975,8 +2048,7 @@ document.getElementById("login-form").addEventListener("submit", async (event) =
     }
 
     if (loginError) throw loginError;
-    await loadWorkspace();
-    document.getElementById("login-password").value = "";
+    await startMfaVerification();
   } catch (error) {
     console.error("Falha na autenticação ou no carregamento do banco:", error);
     showLoginError(error.message === "Invalid login credentials"
@@ -1987,6 +2059,68 @@ document.getElementById("login-form").addEventListener("submit", async (event) =
   } finally {
     button.disabled = false;
   }
+});
+
+document.getElementById("mfa-verify").addEventListener("click", async () => {
+  if (!supabaseClient || !mfaChallenge) return;
+  const button = document.getElementById("mfa-verify");
+  const errorOutput = document.getElementById("mfa-error");
+  const code = document.getElementById("mfa-code").value.replace(/\D/g, "");
+  if (code.length !== 6) {
+    errorOutput.textContent = "Informe o código de seis dígitos do app autenticador.";
+    errorOutput.hidden = false;
+    return;
+  }
+
+  button.disabled = true;
+  errorOutput.hidden = true;
+  try {
+    const { error } = await supabaseClient.auth.mfa.verify({
+      factorId: mfaChallenge.factorId,
+      challengeId: mfaChallenge.challengeId,
+      code,
+    });
+    if (error) throw error;
+  } catch (error) {
+    console.error("Falha na validação do autenticador:", error);
+    errorOutput.textContent = error.message?.toLowerCase().includes("aal")
+      ? "O código não foi validado. Confira se ele ainda está válido e tente novamente."
+      : "Código inválido ou expirado. Confira o horário do celular e tente novamente.";
+    errorOutput.hidden = false;
+    document.getElementById("mfa-code").select();
+    button.disabled = false;
+    return;
+  }
+
+  mfaChallenge = null;
+  try {
+    await completeMfaAuthentication();
+  } catch (error) {
+    console.error("Autenticador validado, mas não foi possível carregar o PDV:", error);
+    await supabaseClient.auth.signOut();
+    showLoginError("Código validado, mas não foi possível carregar os dados. Confira a conexão e entre novamente.");
+  } finally {
+    button.disabled = false;
+  }
+});
+document.getElementById("mfa-code").addEventListener("input", (event) => {
+  event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6);
+});
+document.getElementById("mfa-code").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  document.getElementById("mfa-verify").click();
+});
+document.getElementById("mfa-cancel").addEventListener("click", async () => {
+  if (!supabaseClient) return;
+  const { error } = await supabaseClient.auth.signOut();
+  if (error) {
+    console.error("Não foi possível cancelar a autenticação:", error);
+    document.getElementById("mfa-error").textContent = "Não foi possível sair. Tente novamente.";
+    document.getElementById("mfa-error").hidden = false;
+    return;
+  }
+  resetMfaUI();
 });
 document.getElementById("password-toggle").addEventListener("click", (event) => {
   const password = document.getElementById("login-password");

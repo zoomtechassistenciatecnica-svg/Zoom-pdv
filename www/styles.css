@@ -1016,6 +1016,19 @@ html[data-theme="light"] .select-control,
 html[data-theme="light"] .login-input-wrap input {
   color: #242432;
 }
+html[data-theme="light"] .mfa-step h3,
+html[data-theme="light"] .mfa-step>label {
+  color: #15243a;
+}
+html[data-theme="light"] .mfa-step p,
+html[data-theme="light"] .mfa-cancel {
+  color: #77869a;
+}
+html[data-theme="light"] .mfa-secret {
+  border-color: #dfe6ee;
+  background: #f7f9fc;
+  color: #27364a;
+}
 html[data-theme="light"] table,
 html[data-theme="light"] .sale-items-table,
 html[data-theme="light"] .film-compatibility-table {
@@ -1084,6 +1097,50 @@ html[data-theme="light"] .toast {
 .login-error{margin:-10px 0 16px;color:#c33838;font-size:13px}
 .login-security-note{display:flex;gap:9px;margin:24px 0 0;padding:13px;border:1px solid #e6edf5;border-radius:8px;background:#f7f9fc;color:#78879a;font-size:11px;line-height:1.6}
 .login-security-note span{flex:0 0 auto;color:#1688e9}
+.mfa-step{display:flex;flex-direction:column;gap:10px}
+.mfa-step h3{margin:0;color:#15243a;font-family:Manrope,sans-serif;font-size:20px}
+.mfa-step p{margin:0 0 4px;color:#77869a;font-size:13px;line-height:1.55}
+.mfa-step>label{margin-top:5px;color:#27364a;font-size:13px;font-weight:700}
+.mfa-step[hidden]{display:none}
+#mfa-qr-code{width:min(220px,70vw);height:auto;align-self:center;padding:8px;border:1px solid #dfe6ee;border-radius:8px;background:#fff}
+.mfa-secret-label{font-size:12px!important}
+.mfa-secret{display:block;overflow-wrap:anywhere;padding:10px;border:1px solid #dfe6ee;border-radius:8px;background:#f7f9fc;color:#27364a;font-size:12px;user-select:all}
+.mfa-code-input{height:52px;border:1px solid #dfe6ee;border-radius:9px;background:#fff;color:#203149;text-align:center;font-size:24px;letter-spacing:.35em}
+.mfa-code-input:focus{outline:0;border-color:#238fe8;box-shadow:0 0 0 3px rgba(35,143,232,.12)}
+.mfa-cancel{align-self:center;border:0;background:transparent;color:#77869a;font-size:12px;text-decoration:underline;cursor:pointer}
+html[data-theme="dark"] .login-screen,
+html[data-theme="dark"] .login-panel {
+  background: #020815;
+}
+html[data-theme="dark"] .login-card h2,
+html[data-theme="dark"] .mfa-step h3,
+html[data-theme="dark"] .mfa-step>label {
+  color: #f5f8ff;
+}
+html[data-theme="dark"] .login-intro,
+html[data-theme="dark"] .mfa-step p,
+html[data-theme="dark"] .mfa-cancel {
+  color: #a7bfdd;
+}
+html[data-theme="dark"] .login-form>label {
+  color: #d5e4fa;
+}
+html[data-theme="dark"] .login-input-wrap,
+html[data-theme="dark"] .mfa-code-input {
+  border-color: #26558d;
+  background: #061a35;
+  color: #f5f8ff;
+}
+html[data-theme="dark"] .login-input-wrap input,
+html[data-theme="dark"] .mfa-code-input {
+  color: #f5f8ff;
+}
+html[data-theme="dark"] .login-security-note,
+html[data-theme="dark"] .mfa-secret {
+  border-color: #12375e;
+  background: #071b39;
+  color: #b7d2f2;
+}
 .login-copyright{margin-top:42px;color:#9aa6b5;font-size:11px}
 .logout-button{padding:7px 11px;border:1px solid #e6e9ef;border-radius:7px;background:#fff;color:#667085;font-size:12px}
 .logout-button:hover{border-color:#cdd8e5;color:#1f2937}
