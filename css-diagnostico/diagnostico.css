@@ -45,8 +45,12 @@ footer{line-height:1.5;text-align:center;margin:24px 0}
 .touch-cell{aspect-ratio:1;border:1px solid #475569;border-radius:7px;background:#1e293b}
 .touch-cell.hit{background:#16a34a;border-color:#4ade80}
 .test-dialog.samsung-touch-dialog{
+  position:fixed;
+  inset:0;
   width:100vw;
   height:100vh;
+  width:100dvw;
+  height:100dvh;
   max-width:none;
   max-height:none;
   margin:0;
