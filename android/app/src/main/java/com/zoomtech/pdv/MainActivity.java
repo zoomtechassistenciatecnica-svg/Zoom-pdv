@@ -6,12 +6,16 @@ import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.os.Build;
+import android.webkit.JavascriptInterface;
+import android.util.DisplayMetrics;
+import android.os.Build;
 
 public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         enterImmersiveMode();
+        getBridge().getWebView().addJavascriptInterface(new DeviceInfoInterface(), "ZoomDevice");
     }
 
     @Override
@@ -38,6 +42,38 @@ public class MainActivity extends BridgeActivity {
                     | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                     | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
             );
+        }
+    }
+
+    private class DeviceInfoInterface {
+        @JavascriptInterface
+        public String getDeviceInfo() {
+            DisplayMetrics metrics = getResources().getDisplayMetrics();
+            String systemVersion = Build.VERSION.RELEASE;
+            String platform = "Android";
+            String json = "{"
+                + "\"brand\":\"" + escape(Build.BRAND) + "\","
+                + "\"manufacturer\":\"" + escape(Build.MANUFACTURER) + "\","
+                + "\"model\":\"" + escape(Build.MODEL) + "\","
+                + "\"hardware\":\"" + escape(Build.HARDWARE) + "\","
+                + "\"product\":\"" + escape(Build.PRODUCT) + "\","
+                + "\"platform\":\"" + platform + "\","
+                + "\"system\":\"" + platform + "\","
+                + "\"systemVersion\":\"" + escape(systemVersion) + "\","
+                + "\"sdk\":\"" + Build.VERSION.SDK_INT + "\","
+                + "\"width\":" + metrics.widthPixels + ","
+                + "\"height\":" + metrics.heightPixels
+                + "}";
+            return json;
+        }
+
+        private String escape(String value) {
+            if (value == null) return "";
+            return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", " ")
+                .replace("\r", " ");
         }
     }
 }
