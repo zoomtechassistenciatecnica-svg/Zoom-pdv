@@ -47,7 +47,7 @@ A resolução de CPF/telefone não deve ser feita por uma função SQL pública 
 5. Publique a função: `supabase functions deploy login-by-identifier`.
 6. Confira em Edge Functions se `login-by-identifier` está ativa. A configuração `verify_jwt = false` é necessária porque a tela de login ainda não tem uma sessão; a função aplica validação de entrada, autenticação de senha no Auth e limite por IP.
 7. Confirme que os segredos padrão `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `SUPABASE_ANON_KEY` estão disponíveis no ambiente da Edge Function. Se não estiverem, configure-os pelo painel/CLI. A chave `service_role` fica exclusivamente no servidor e nunca no JavaScript do site.
-8. Publique o frontend atualizado (web) e gere novamente o app Android a partir dos arquivos web sincronizados.
+8. Publique o frontend atualizado no seu serviço de hospedagem web.
 
 ### Como os identificadores são associados
 
@@ -64,7 +64,7 @@ Se mais de uma conta corresponder ao mesmo CPF/telefone, o login é recusado de 
 - Login por telefone com DDD.
 - MFA/TOTP após cada autenticação.
 - Leitura e gravação de produtos, clientes, vendas e ordens de serviço.
-- Teste em dois dispositivos e no Android.
+- Teste em navegadores de desktop e celular.
 - Tentativas repetidas: após 10 chamadas por minuto por IP, a função deve responder HTTP 429.
 
 A alteração não cria usuários, não redefine senhas e não altera os IDs de `auth.users` nem o conteúdo de `pdv_data`. A migração de login é independente dos dados comerciais. A limitação de tentativas é uma proteção básica; para ambientes de alto volume, complemente com monitoramento e proteção anti-abuso no gateway.

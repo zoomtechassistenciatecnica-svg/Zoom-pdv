@@ -411,26 +411,17 @@ document.getElementById("autoModeBtn").addEventListener("click", async () => {
 });
 
 async function deviceInfo() {
-  let nativeInfo = null;
-  try {
-    if (globalThis.ZoomDevice?.getDeviceInfo) {
-      nativeInfo = JSON.parse(globalThis.ZoomDevice.getDeviceInfo());
-    }
-  } catch (error) {
-    console.warn("Não foi possível obter informações nativas:", error);
-  }
-
   const ua = navigator.userAgent;
   const androidMatch = ua.match(/;\s*([^;)]+)\s*Build\//i);
   const appleMatch = ua.match(/(iPhone|iPad)[^;)]*/i);
   const inferredModel = androidMatch?.[1]?.trim() || appleMatch?.[0]?.trim() || navigator.userAgentData?.model || "Modelo não identificado";
-  const platform = nativeInfo?.platform || navigator.userAgentData?.platform || navigator.platform || "Não identificado";
-  const brand = nativeInfo?.brand || (navigator.userAgentData?.brands?.[0]?.brand) || (ua.includes("Android") ? "Android" : ua.includes("iPhone") || ua.includes("iPad") ? "Apple" : "Não identificado");
-  const model = nativeInfo?.model || inferredModel;
-  const system = nativeInfo?.system || (ua.includes("Android") ? "Android" : ua.includes("iPhone") || ua.includes("iPad") ? "iOS" : "Outro sistema");
-  const systemVersion = nativeInfo?.systemVersion || "";
-  const manufacturer = nativeInfo?.manufacturer || "";
-  const hardware = nativeInfo?.hardware || "";
+  const platform = navigator.userAgentData?.platform || navigator.platform || "Não identificado";
+  const brand = navigator.userAgentData?.brands?.[0]?.brand || (ua.includes("Android") ? "Android" : ua.includes("iPhone") || ua.includes("iPad") ? "Apple" : "Não identificado");
+  const model = inferredModel;
+  const system = ua.includes("Android") ? "Android" : ua.includes("iPhone") || ua.includes("iPad") ? "iOS" : "Outro sistema";
+  const systemVersion = "";
+  const manufacturer = "";
+  const hardware = "";
   const resolution = `${screen.width} × ${screen.height}`;
   const details = [
     `Marca: ${brand}`,

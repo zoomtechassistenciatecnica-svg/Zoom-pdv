@@ -1893,17 +1893,67 @@ function showLoginError(message) {
   error.hidden = false;
 }
 
+function setAuthMode(mode) {
+  const registering = mode === "register";
+  document.getElementById("login-form").hidden = registering;
+  document.getElementById("register-form").hidden = !registering;
+  document.getElementById("login-error").hidden = true;
+  document.getElementById("auth-welcome").textContent = registering ? "NOVO POR AQUI?" : "BEM-VINDO(A) DE VOLTA";
+  document.getElementById("auth-title").textContent = registering ? "Crie sua conta" : "Acesse sua plataforma";
+  document.getElementById("auth-intro").textContent = registering
+    ? "Preencha seus dados para solicitar acesso ao PDV."
+    : "Entre com seus dados para continuar.";
+  document.getElementById("login-security-note").hidden = registering;
+  document.getElementById("login-tab").classList.toggle("active", !registering);
+  document.getElementById("login-tab").setAttribute("aria-selected", String(!registering));
+  document.getElementById("register-tab").classList.toggle("active", registering);
+  document.getElementById("register-tab").setAttribute("aria-selected", String(registering));
+}
+
+function showPendingAccess() {
+  document.getElementById("auth-tabs").hidden = true;
+  document.getElementById("login-form").hidden = true;
+  document.getElementById("register-form").hidden = true;
+  document.getElementById("login-security-note").hidden = true;
+  document.getElementById("access-error").hidden = true;
+  document.getElementById("access-pending").hidden = false;
+  document.getElementById("auth-welcome").textContent = "SOLICITAÇÃO RECEBIDA";
+  document.getElementById("auth-title").textContent = "Quase lá";
+  document.getElementById("auth-intro").textContent = "Seu acesso está sendo analisado.";
+}
+
+async function hasPdvAccess() {
+  const { data, error } = await supabaseClient.rpc("has_pdv_access");
+  if (error) throw error;
+  return data === true;
+}
+
+async function continueAuthenticatedSession() {
+  if (!await hasPdvAccess()) {
+    showPendingAccess();
+    return;
+  }
+  await startMfaVerification();
+}
+
 function resetMfaUI() {
   mfaChallenge = null;
+  document.getElementById("auth-tabs").hidden = false;
+  document.getElementById("login-form").hidden = false;
+  document.getElementById("register-form").hidden = true;
+  document.getElementById("access-pending").hidden = true;
+  document.getElementById("login-security-note").hidden = false;
   document.getElementById("login-credentials").hidden = false;
   document.getElementById("mfa-step").hidden = true;
   document.getElementById("mfa-code").value = "";
   document.getElementById("mfa-error").hidden = true;
+  document.getElementById("access-error").hidden = true;
   document.getElementById("mfa-qr-code").hidden = true;
   document.getElementById("mfa-qr-code").removeAttribute("src");
   document.getElementById("mfa-secret-label").hidden = true;
   document.getElementById("mfa-secret").hidden = true;
   document.getElementById("mfa-secret").textContent = "";
+  setAuthMode("login");
 }
 
 async function completeMfaAuthentication() {
@@ -1960,6 +2010,9 @@ async function startMfaVerification() {
     challengeId: challengeData.id,
   };
   document.getElementById("login-credentials").hidden = true;
+  document.getElementById("auth-tabs").hidden = true;
+  document.getElementById("login-security-note").hidden = true;
+  document.getElementById("register-form").hidden = true;
   document.getElementById("mfa-step").hidden = false;
   document.getElementById("mfa-code").focus();
 }
@@ -1968,6 +2021,7 @@ async function initializeAuthentication() {
   const config = globalThis.ZOOMTECH_SUPABASE_CONFIG;
   if (!config?.url || !config?.anonKey || !globalThis.supabase?.createClient) {
     document.getElementById("login-submit").disabled = true;
+    document.getElementById("register-submit").disabled = true;
     document.getElementById("login-error").textContent = "Configure as variáveis do Supabase seguindo o guia de instalação antes de entrar.";
     document.getElementById("login-error").hidden = false;
     return;
@@ -2000,7 +2054,7 @@ async function initializeAuthentication() {
   try {
     const { data, error } = await supabaseClient.auth.getSession();
     if (error) throw error;
-    if (data.session) await startMfaVerification();
+    if (data.session) await continueAuthenticatedSession();
   } catch (error) {
     console.error("Não foi possível restaurar a sessão ou carregar os dados:", error);
     showLoginError("Não foi possível conectar ao banco. Confira a configuração e tente novamente.");
@@ -2019,7 +2073,7 @@ document.getElementById("login-form").addEventListener("submit", async (event) =
     const password = document.getElementById("login-password").value;
     let loginError = null;
 
-    // E-mail continua no fluxo nativo; CPF/telefone são resolvidos no servidor,
+    // E-mail continua no fluxo padrão do Supabase; CPF/telefone são resolvidos no servidor,
     // sem expor o e-mail associado ao identificador no navegador.
     if (identifier.includes("@")) {
       const result = await supabaseClient.auth.signInWithPassword({ email: identifier, password });
@@ -2040,14 +2094,83 @@ document.getElementById("login-form").addEventListener("submit", async (event) =
     }
 
     if (loginError) throw loginError;
-    await startMfaVerification();
+    await continueAuthenticatedSession();
   } catch (error) {
     console.error("Falha na autenticação ou no carregamento do banco:", error);
-    showLoginError(error.message === "Invalid login credentials"
+    const message = error.message === "Invalid login credentials"
       ? "E-mail, CPF/telefone ou senha incorretos."
-      : "Não foi possível entrar ou carregar os dados. Confira a conexão e tente novamente.");
+      : "Não foi possível entrar ou carregar os dados. Confira a conexão e tente novamente.";
     const { error: signOutError } = await supabaseClient.auth.signOut();
     if (signOutError) console.error("Não foi possível encerrar a sessão após a falha:", signOutError);
+    showLoginError(message);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.querySelectorAll("[data-auth-mode]").forEach((button) => {
+  button.addEventListener("click", () => {
+    setAuthMode(button.dataset.authMode);
+    document.getElementById("register-error").hidden = true;
+    document.getElementById("register-success").hidden = true;
+  });
+});
+document.getElementById("register-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!supabaseClient) return;
+
+  const button = document.getElementById("register-submit");
+  const errorOutput = document.getElementById("register-error");
+  const successOutput = document.getElementById("register-success");
+  const name = document.getElementById("register-name").value.trim();
+  const email = document.getElementById("register-email").value.trim();
+  const password = document.getElementById("register-password").value;
+  const passwordConfirmation = document.getElementById("register-password-confirm").value;
+  let createdSession = false;
+  errorOutput.hidden = true;
+  successOutput.hidden = true;
+  if (name.length < 2) {
+    errorOutput.textContent = "Informe seu nome para continuar.";
+    errorOutput.hidden = false;
+    document.getElementById("register-name").focus();
+    return;
+  }
+  if (password !== passwordConfirmation) {
+    errorOutput.textContent = "As senhas não coincidem.";
+    errorOutput.hidden = false;
+    document.getElementById("register-password-confirm").focus();
+    return;
+  }
+
+  button.disabled = true;
+  try {
+    const { data, error } = await supabaseClient.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: name },
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    if (error) throw error;
+
+    if (data.session) {
+      createdSession = true;
+      await continueAuthenticatedSession();
+    } else {
+      successOutput.textContent = "Se este endereço puder receber um cadastro, enviaremos um link de confirmação. Depois, entre na sua conta para acompanhar a aprovação do administrador.";
+      successOutput.hidden = false;
+      document.getElementById("register-form").reset();
+    }
+  } catch (error) {
+    console.error("Não foi possível solicitar acesso ao PDV:", error);
+    if (createdSession) {
+      const { error: signOutError } = await supabaseClient.auth.signOut();
+      if (signOutError) console.error("Não foi possível encerrar a sessão após a falha no cadastro:", signOutError);
+      setAuthMode("register");
+    }
+    errorOutput.textContent = "Não foi possível concluir o cadastro. Confira os dados e tente novamente.";
+    errorOutput.hidden = false;
   } finally {
     button.disabled = false;
   }
@@ -2121,6 +2244,40 @@ document.getElementById("password-toggle").addEventListener("click", (event) => 
   password.type = isVisible ? "password" : "text";
   button.setAttribute("aria-pressed", String(!isVisible));
   button.setAttribute("aria-label", isVisible ? "Mostrar senha" : "Ocultar senha");
+});
+document.getElementById("access-recheck").addEventListener("click", async (event) => {
+  if (!supabaseClient) return;
+  const button = event.currentTarget;
+  const errorOutput = document.getElementById("access-error");
+  button.disabled = true;
+  errorOutput.hidden = true;
+  try {
+    if (!await hasPdvAccess()) {
+      errorOutput.textContent = "Sua solicitação ainda está pendente. Tente novamente depois da aprovação.";
+      errorOutput.hidden = false;
+      return;
+    }
+    document.getElementById("access-pending").hidden = true;
+    document.getElementById("auth-tabs").hidden = true;
+    document.getElementById("login-form").hidden = false;
+    await startMfaVerification();
+  } catch (error) {
+    console.error("Não foi possível verificar a aprovação do usuário:", error);
+    document.getElementById("access-pending").hidden = false;
+    errorOutput.textContent = "Não foi possível verificar seu acesso. Confira a conexão e tente novamente.";
+    errorOutput.hidden = false;
+  } finally {
+    button.disabled = false;
+  }
+});
+document.getElementById("access-signout").addEventListener("click", async () => {
+  if (!supabaseClient) return;
+  const { error } = await supabaseClient.auth.signOut();
+  if (error) {
+    console.error("Não foi possível sair da conta pendente:", error);
+    document.getElementById("access-error").textContent = "Não foi possível sair. Tente novamente.";
+    document.getElementById("access-error").hidden = false;
+  }
 });
 document.getElementById("logout-button").addEventListener("click", async () => {
   await flushStateSave();

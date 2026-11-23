@@ -13,23 +13,56 @@ alter table public.pdv_data enable row level security;
 revoke all on table public.pdv_data from anon, authenticated;
 grant select, insert, update on table public.pdv_data to authenticated;
 
+-- A tabela nasce com as contas já existentes autorizadas; novas contas exigem liberação manual.
+do $$
+begin
+  if to_regclass('public.pdv_user_access') is null then
+    create table public.pdv_user_access (
+      user_id uuid primary key references auth.users(id) on delete cascade,
+      granted_at timestamptz not null default now()
+    );
+    insert into public.pdv_user_access (user_id)
+    select id from auth.users;
+  end if;
+end;
+$$;
+
+alter table public.pdv_user_access enable row level security;
+revoke all on table public.pdv_user_access from public, anon, authenticated;
+
+create or replace function public.has_pdv_access()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.pdv_user_access
+    where user_id = (select auth.uid())
+  );
+$$;
+revoke all on function public.has_pdv_access() from public, anon, authenticated;
+grant execute on function public.has_pdv_access() to authenticated;
+
 -- No Supabase Dashboard, habilite Authentication > Sign In / Providers > Authenticator App (TOTP)
 -- e defina o nível mínimo de garantia (MFA) como AAL2. As políticas abaixo também exigem aal2.
 drop policy if exists "Authenticated users can read store data" on public.pdv_data;
 create policy "Authenticated users can read store data"
   on public.pdv_data for select to authenticated
-  using ((select auth.uid()) is not null and (select auth.jwt() ->> 'aal') = 'aal2');
+  using (public.has_pdv_access() and (select auth.jwt() ->> 'aal') = 'aal2');
 
 drop policy if exists "Authenticated users can create store data" on public.pdv_data;
 create policy "Authenticated users can create store data"
   on public.pdv_data for insert to authenticated
-  with check ((select auth.uid()) is not null and (select auth.jwt() ->> 'aal') = 'aal2');
+  with check (public.has_pdv_access() and (select auth.jwt() ->> 'aal') = 'aal2');
 
 drop policy if exists "Authenticated users can update store data" on public.pdv_data;
 create policy "Authenticated users can update store data"
   on public.pdv_data for update to authenticated
-  using ((select auth.uid()) is not null and (select auth.jwt() ->> 'aal') = 'aal2')
-  with check ((select auth.uid()) is not null and (select auth.jwt() ->> 'aal') = 'aal2');
+  using (public.has_pdv_access() and (select auth.jwt() ->> 'aal') = 'aal2')
+  with check (public.has_pdv_access() and (select auth.jwt() ->> 'aal') = 'aal2');
 
 create or replace function public.set_pdv_data_updated_at()
 returns trigger
