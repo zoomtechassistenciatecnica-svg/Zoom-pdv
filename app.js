@@ -1999,6 +1999,7 @@ async function startMfaVerification() {
     const { data: enrolled, error: enrollError } = await supabaseClient.auth.mfa.enroll({
       factorType: "totp",
       friendlyName: "Zoom tech PDV",
+      issuer: "Zoom tech",
     });
     if (enrollError) throw enrollError;
     factor = enrolled;
