@@ -2214,9 +2214,28 @@ document.getElementById("mfa-verify").addEventListener("click", async () => {
     if (error) throw error;
   } catch (error) {
     console.error("Falha na validação do autenticador:", error);
-    errorOutput.textContent = error.message?.toLowerCase().includes("aal")
-      ? "O código não foi validado. Confira se ele ainda está válido e tente novamente."
-      : "Código inválido ou expirado. Confira o horário do celular e tente novamente.";
+    const errorText = `${error.message || ""} ${error.code || ""}`.toLowerCase();
+    let challengeRefreshed = false;
+    if (errorText.includes("expired") || errorText.includes("expir") || errorText.includes("challenge")) {
+      try {
+        const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({
+          factorId: mfaChallenge.factorId,
+        });
+        if (!challengeError && challengeData?.id) {
+          mfaChallenge.challengeId = challengeData.id;
+          challengeRefreshed = true;
+        }
+      } catch (challengeRefreshError) {
+        console.error("Não foi possível renovar o desafio MFA:", challengeRefreshError);
+      }
+    }
+    if (challengeRefreshed) {
+      errorOutput.textContent = "O desafio foi renovado. Aguarde o próximo código no app autenticador e tente novamente.";
+    } else if (errorText.includes("expired") || errorText.includes("expir")) {
+      errorOutput.textContent = "O código expirou. Confira a hora automática do celular e aguarde o próximo código.";
+    } else {
+      errorOutput.textContent = "Código inválido. Confira a hora automática do celular e use o código atual exibido no app.";
+    }
     errorOutput.hidden = false;
     document.getElementById("mfa-code").select();
     button.disabled = false;
