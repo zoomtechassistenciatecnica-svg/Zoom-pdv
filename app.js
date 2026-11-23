@@ -2085,29 +2085,9 @@ document.getElementById("login-form").addEventListener("submit", async (event) =
   button.disabled = true;
   document.getElementById("login-error").hidden = true;
   try {
-    const identifier = document.getElementById("login-email").value.trim();
+    const email = document.getElementById("login-email").value.trim();
     const password = document.getElementById("login-password").value;
-    let loginError = null;
-
-    // E-mail continua no fluxo padrão do Supabase; CPF/telefone são resolvidos no servidor,
-    // sem expor o e-mail associado ao identificador no navegador.
-    if (identifier.includes("@")) {
-      const result = await supabaseClient.auth.signInWithPassword({ email: identifier, password });
-      loginError = result.error;
-    } else {
-      const digits = identifier.replace(/\D/g, "");
-      const cpfWasFormatted = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(identifier);
-      const isCpfIdentifier = cpfWasFormatted || (digits.length === 11 && isValidCpf(digits));
-      if (!isCpfIdentifier && digits.length !== 10 && digits.length !== 11) {
-        throw new Error("Informe um e-mail, um CPF válido ou um telefone com DDD.");
-      }
-      const { data, error } = await supabaseClient.functions.invoke("login-by-identifier", {
-        body: { identifier: digits, password },
-      });
-      if (error || !data?.session) throw new Error("Invalid login credentials");
-      const { error: sessionError } = await supabaseClient.auth.setSession(data.session);
-      loginError = sessionError;
-    }
+    const { error: loginError } = await supabaseClient.auth.signInWithPassword({ email, password });
 
     if (loginError) throw loginError;
     await continueAuthenticatedSession();
@@ -2115,7 +2095,7 @@ document.getElementById("login-form").addEventListener("submit", async (event) =
     console.error("Falha na autenticação ou no carregamento do banco:", error);
     const message = getSupabaseSetupErrorMessage(error)
       || (error.message === "Invalid login credentials"
-        ? "E-mail, CPF/telefone ou senha incorretos."
+        ? "E-mail ou senha incorretos."
         : "Não foi possível entrar ou carregar os dados. Confira a conexão e tente novamente.");
     const { error: signOutError } = await supabaseClient.auth.signOut();
     if (signOutError) console.error("Não foi possível encerrar a sessão após a falha:", signOutError);
