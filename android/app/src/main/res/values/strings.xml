@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Zoom Tech PDV</string>
-    <string name="title_activity_main">Zoom Tech PDV</string>
-    <string name="package_name">com.zoomtech.pdv</string>
-    <string name="custom_url_scheme">com.zoomtech.pdv</string>
-</resources>

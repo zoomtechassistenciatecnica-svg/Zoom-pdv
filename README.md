@@ -65,47 +65,19 @@ de ordens de serviço.
 
 ## Tecnologias e serviços
 
-As tecnologias exatas devem ser confirmadas nos arquivos de configuração
-do repositório. A arquitetura descrita para o projeto inclui:
+Aplicação web estática em HTML, CSS e JavaScript, com autenticação e
+armazenamento de dados pelo Supabase:
 
--   **Git e GitHub Desktop** --- controle de versão e envio de
-    alterações.
--   **Cloudflare Pages** --- hospedagem/publicação da aplicação web.
--   **Supabase** --- autenticação e banco de dados, conforme a
-    configuração do projeto.
--   **Node.js e npm** --- ambiente de execução e gerenciamento de
-    dependências, caso utilizados pelo projeto.
+-   **Cloudflare Pages ou Netlify** --- hospedagem/publicação do site.
+-   **Supabase** --- autenticação e banco de dados.
+-   **Node.js** --- usado apenas pelos scripts de configuração de deploy.
 
 ## Executar o projeto localmente
 
-Os comandos abaixo são um fluxo comum para projetos JavaScript/Node.js.
-Confira o `package.json` e as instruções específicas do projeto antes de
-executar.
-
-1.  Clone o repositório:
-
-    ``` bash
-    git clone URL_DO_REPOSITORIO
-    ```
-
-2.  Acesse a pasta do projeto:
-
-    ``` bash
-    cd "plataforma pdv"
-    ```
-
-3.  Instale as dependências:
-
-    ``` bash
-    npm install
-    ```
-
-4.  Configure as variáveis de ambiente exigidas pela aplicação. Consulte
-    os arquivos de exemplo e a documentação do projeto. **Não coloque
-    senhas, tokens ou chaves privadas no repositório.**
-
-5.  Inicie a aplicação usando o script apropriado definido em
-    `package.json` (por exemplo, `npm run dev`, se esse script existir).
+Sirva a pasta do projeto com qualquer servidor HTTP estático e abra o
+`index.html` pelo endereço local. Configure o Supabase conforme o guia
+[`CONFIGURACAO.md`](./CONFIGURACAO.md). Não é necessário instalar
+dependências de aplicativo.
 
 ## Publicação no Cloudflare Pages
 

@@ -60,24 +60,41 @@
         <img src="Logo.png" alt="Zoom tech Assistência técnica">
       </a>
       <div class="login-story-copy">
-        <span class="login-kicker"><i></i> GESTÃO INTELIGENTE PARA SUA ASSISTÊNCIA</span>
-        <h1>Tudo em um só lugar.<br><span>Do balcão ao reparo.</span></h1>
-        <p>Organize suas vendas, acompanhe os serviços e cuide do seu estoque com praticidade.</p>
+        <span class="login-kicker"><i></i> ZOOM TECH · PLATAFORMA PDV</span>
+        <h1>Seu negócio,<br><span>em boas mãos.</span></h1>
+        <p>Vendas, estoque e assistência técnica em um só lugar — para você cuidar do que realmente importa.</p>
+        <div class="login-feature-list">
+          <div><span aria-hidden="true">✓</span> Vendas e caixa organizados</div>
+          <div><span aria-hidden="true">✓</span> Ordens de serviço acompanhadas</div>
+          <div><span aria-hidden="true">✓</span> Estoque sempre sob controle</div>
+        </div>
       </div>
-      <div class="login-story-footer"><span>◈</span> Sua assistência técnica, sempre em movimento.</div>
+      <div class="login-story-visual" aria-hidden="true">
+        <div class="login-visual-card">
+          <span class="login-visual-dot"></span>
+          <span class="login-visual-label">PAINEL DA SUA ASSISTÊNCIA</span>
+          <div class="login-visual-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="login-visual-caption"><span>Vendas</span><span>Estoque</span><span>Serviços</span></div>
+        </div>
+      </div>
+      <div class="login-story-footer">Feito para acompanhar o ritmo da sua loja.</div>
     </section>
     <section class="login-panel">
       <div class="login-card">
         <div class="login-mobile-brand"><img src="Logo.png" alt="Zoom tech Assistência técnica"></div>
-        <span class="login-welcome">BEM-VINDO(A) DE VOLTA</span>
-        <h2>Acesse sua plataforma</h2>
-        <p class="login-intro">Entre com seus dados para continuar.</p>
+        <span class="login-welcome" id="auth-welcome">BEM-VINDO(A) DE VOLTA</span>
+        <h2 id="auth-title">Acesse sua plataforma</h2>
+        <p class="login-intro" id="auth-intro">Entre com seus dados para continuar.</p>
+        <div class="auth-tabs" id="auth-tabs" role="tablist" aria-label="Acesso à plataforma">
+          <button class="auth-tab active" id="login-tab" type="button" role="tab" aria-selected="true" aria-controls="login-form" data-auth-mode="login">Entrar</button>
+          <button class="auth-tab" id="register-tab" type="button" role="tab" aria-selected="false" aria-controls="register-form" data-auth-mode="register">Criar conta</button>
+        </div>
         <form id="login-form" class="login-form">
           <div id="login-credentials">
             <label for="login-email">E-mail, CPF ou telefone</label>
-            <div class="login-input-wrap"><span aria-hidden="true">♙</span><input id="login-email" name="identifier" type="text" inputmode="text" autocomplete="username" placeholder="seu@email.com, CPF ou telefone" maxlength="254" required></div>
+            <div class="login-input-wrap"><span aria-hidden="true">✉</span><input id="login-email" name="identifier" type="text" inputmode="text" autocomplete="username" placeholder="seu@email.com, CPF ou telefone" maxlength="254" required></div>
             <label for="login-password">Senha</label>
-            <div class="login-input-wrap"><span aria-hidden="true">⌑</span><input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" required><button class="password-toggle" id="password-toggle" type="button" aria-label="Mostrar senha" aria-pressed="false">◉</button></div>
+            <div class="login-input-wrap"><span aria-hidden="true">▣</span><input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" required><button class="password-toggle" id="password-toggle" type="button" aria-label="Mostrar senha" aria-pressed="false">◉</button></div>
             <p class="login-error" id="login-error" role="alert" hidden></p>
             <button class="login-submit" id="login-submit" type="submit">Entrar na plataforma <span aria-hidden="true">→</span></button>
           </div>
@@ -94,7 +111,29 @@
             <button class="mfa-cancel" id="mfa-cancel" type="button">Cancelar e sair</button>
           </section>
         </form>
-        <p class="login-security-note"><span aria-hidden="true">ⓘ</span> Acesso protegido com senha e verificação em duas etapas pelo Google Authenticator ou outro app compatível com TOTP.</p>
+        <form id="register-form" class="login-form auth-form" hidden>
+          <label for="register-name">Seu nome</label>
+          <div class="login-input-wrap"><span aria-hidden="true">♙</span><input id="register-name" name="name" type="text" autocomplete="name" placeholder="Como podemos chamar você?" maxlength="100" required></div>
+          <label for="register-email">E-mail</label>
+          <div class="login-input-wrap"><span aria-hidden="true">✉</span><input id="register-email" name="email" type="email" autocomplete="email" placeholder="voce@exemplo.com" maxlength="254" required></div>
+          <label for="register-password">Crie uma senha</label>
+          <div class="login-input-wrap"><span aria-hidden="true">▣</span><input id="register-password" name="password" type="password" autocomplete="new-password" placeholder="Mínimo de 8 caracteres" minlength="8" required></div>
+          <label for="register-password-confirm">Confirme sua senha</label>
+          <div class="login-input-wrap"><span aria-hidden="true">▣</span><input id="register-password-confirm" name="password-confirm" type="password" autocomplete="new-password" placeholder="Digite a senha novamente" minlength="8" required></div>
+          <p class="login-error" id="register-error" role="alert" hidden></p>
+          <p class="register-success" id="register-success" role="status" hidden></p>
+          <button class="login-submit" id="register-submit" type="submit">Solicitar acesso <span aria-hidden="true">→</span></button>
+          <p class="register-approval-note">O acesso aos dados da loja é liberado após aprovação do administrador.</p>
+        </form>
+        <section class="access-pending" id="access-pending" hidden aria-live="polite">
+          <span class="access-pending-icon" aria-hidden="true">⌛</span>
+          <h3>Aguardando aprovação</h3>
+          <p>Seu cadastro foi recebido. Assim que o administrador liberar seu acesso, volte aqui e verifique novamente.</p>
+          <p class="login-error" id="access-error" role="alert" hidden></p>
+          <button class="login-submit" id="access-recheck" type="button">Verificar aprovação <span aria-hidden="true">↻</span></button>
+          <button class="mfa-cancel" id="access-signout" type="button">Sair da conta</button>
+        </section>
+        <p class="login-security-note" id="login-security-note"><span aria-hidden="true">ⓘ</span> Acesso protegido com senha e verificação em duas etapas pelo Google Authenticator ou outro app compatível com TOTP.</p>
       </div>
       <span class="login-copyright">© 2026 Zoom tech · Assistência técnica</span>
     </section>
