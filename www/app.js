@@ -1893,6 +1893,16 @@ function showLoginError(message) {
   error.hidden = false;
 }
 
+function getSupabaseSetupErrorMessage(error) {
+  if (error?.message === "SUPABASE_SCHEMA_NOT_APPLIED" || error?.code === "PGRST202") {
+    return "A estrutura do banco não foi aplicada neste projeto Supabase. Execute o arquivo supabase-schema.sql no SQL Editor e tente novamente.";
+  }
+  if (error?.status === 404) {
+    return "O projeto Supabase não corresponde à configuração publicada ou o recurso solicitado não existe.";
+  }
+  return null;
+}
+
 function setAuthMode(mode) {
   const registering = mode === "register";
   document.getElementById("login-form").hidden = registering;
@@ -1924,7 +1934,12 @@ function showPendingAccess() {
 
 async function hasPdvAccess() {
   const { data, error } = await supabaseClient.rpc("has_pdv_access");
-  if (error) throw error;
+  if (error) {
+    if (error.code === "PGRST202" || error.status === 404) {
+      throw new Error("SUPABASE_SCHEMA_NOT_APPLIED");
+    }
+    throw error;
+  }
   return data === true;
 }
 
@@ -2057,7 +2072,7 @@ async function initializeAuthentication() {
     if (data.session) await continueAuthenticatedSession();
   } catch (error) {
     console.error("Não foi possível restaurar a sessão ou carregar os dados:", error);
-    showLoginError("Não foi possível conectar ao banco. Confira a configuração e tente novamente.");
+    showLoginError(getSupabaseSetupErrorMessage(error) || "Não foi possível conectar ao banco. Confira a configuração e tente novamente.");
   }
 }
 
@@ -2097,9 +2112,10 @@ document.getElementById("login-form").addEventListener("submit", async (event) =
     await continueAuthenticatedSession();
   } catch (error) {
     console.error("Falha na autenticação ou no carregamento do banco:", error);
-    const message = error.message === "Invalid login credentials"
-      ? "E-mail, CPF/telefone ou senha incorretos."
-      : "Não foi possível entrar ou carregar os dados. Confira a conexão e tente novamente.";
+    const message = getSupabaseSetupErrorMessage(error)
+      || (error.message === "Invalid login credentials"
+        ? "E-mail, CPF/telefone ou senha incorretos."
+        : "Não foi possível entrar ou carregar os dados. Confira a conexão e tente novamente.");
     const { error: signOutError } = await supabaseClient.auth.signOut();
     if (signOutError) console.error("Não foi possível encerrar a sessão após a falha:", signOutError);
     showLoginError(message);
