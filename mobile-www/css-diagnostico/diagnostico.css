@@ -1,0 +1,201 @@
+*{box-sizing:border-box}
+:root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#f8fafc;background:#0b1120}
+body{margin:0;min-height:100vh;background:radial-gradient(circle at top right,#1e293b 0,#0b1120 45%);padding:22px 14px}
+button{font:inherit;cursor:pointer}
+.app{width:min(760px,100%);margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:flex-start;margin:8px 0 22px}
+h1{font-size:clamp(25px,5vw,34px);margin:4px 0}
+h2{font-size:19px;margin:0}
+p{margin:6px 0}
+.eyebrow{font-size:10px;letter-spacing:1.5px;font-weight:800;color:#93c5fd}
+.muted{color:#94a3b8}.small{font-size:12px}
+.live-dot{width:11px;height:11px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 6px #22c55e22;margin:10px}
+.card{background:#111c30;border:1px solid #263449;border-radius:18px;padding:17px;margin-bottom:13px}
+.summary-line,.stats,.device,.section-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.summary-line strong{font-size:29px}
+.progress{height:8px;background:#29364b;border-radius:20px;overflow:hidden;margin:12px 0}
+.progress>div{height:100%;width:0;background:#22c55e;transition:width .2s}
+.stats{justify-content:flex-start;flex-wrap:wrap;font-size:12px;color:#cbd5e1;gap:18px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
+.ok{background:#22c55e}.fail{background:#ef4444}.skip{background:#64748b}
+.device strong{display:block;margin-top:4px;font-size:13px}
+.text-button{border:0;background:none;color:#93c5fd;font-weight:700}
+.section-heading{margin:25px 2px 12px}
+.test-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.test-card{min-height:128px;text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding:14px;border-radius:15px;border:1px solid #29364b;background:#111c30;color:#f8fafc}
+.test-card:active{transform:scale(.985)}
+.test-icon{font-size:23px;color:#93c5fd;margin-bottom:3px}
+.test-card b{font-size:14px}.test-card small{font-size:11px;color:#94a3b8}
+.status{font-style:normal;font-size:10px;margin-top:4px;border-radius:20px;padding:4px 8px;background:#334155;color:#cbd5e1}
+.status.approved{background:#14532d;color:#bbf7d0}.status.failed{background:#7f1d1d;color:#fecaca}.status.unsupported{background:#713f12;color:#fde68a}
+.actions{display:grid;gap:9px;margin:22px 0}
+.btn{width:100%;padding:14px;border:0;border-radius:12px;font-weight:800}
+.btn-primary{background:#2563eb;color:white}.btn-secondary{background:#1e293b;color:#cbd5e1;border:1px solid #334155}
+footer{line-height:1.5;text-align:center;margin:24px 0}
+.test-dialog{width:min(520px,calc(100% - 24px));border:1px solid #334155;border-radius:20px;background:#111c30;color:#f8fafc;padding:20px;max-height:90vh}
+.test-dialog::backdrop{background:#020617cc;backdrop-filter:blur(4px)}
+.dialog-head{display:flex;justify-content:space-between;align-items:flex-start}
+.close{border:0;background:#263449;color:white;border-radius:50%;width:34px;height:34px;font-size:23px}
+.dialog-content{padding:18px 0;line-height:1.5;color:#cbd5e1}
+.dialog-actions{display:flex;gap:9px;flex-wrap:wrap}
+.dialog-actions button{flex:1;min-width:120px}
+.dialog-content video{width:100%;max-height:55vh;background:#020617;border-radius:12px;object-fit:contain}
+.dialog-content .test-pattern{height:48vh;min-height:220px;border-radius:12px;display:grid;place-items:center;color:#64748b}
+.touch-board{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
+.touch-cell{aspect-ratio:1;border:1px solid #475569;border-radius:7px;background:#1e293b}
+.touch-cell.hit{background:#16a34a;border-color:#4ade80}
+.test-dialog.samsung-fullscreen-dialog,
+.test-dialog.camera-fullscreen-dialog{
+  position:fixed;
+  inset:0;
+  width:100vw;
+  height:100vh;
+  width:100dvw;
+  height:100dvh;
+  max-width:none;
+  max-height:none;
+  margin:0;
+  border:0;
+  border-radius:0;
+  background:#020617;
+  padding:0;
+  overflow:hidden;
+}
+.test-dialog.samsung-fullscreen-dialog .dialog-head,
+.test-dialog.camera-fullscreen-dialog .dialog-head{
+  position:absolute;
+  z-index:5;
+  left:12px;
+  top:12px;
+  opacity:.15;
+}
+.test-dialog.samsung-fullscreen-dialog .dialog-actions,
+.test-dialog.camera-fullscreen-dialog .dialog-actions{display:none}
+.test-dialog.samsung-fullscreen-dialog .dialog-content,
+.test-dialog.camera-fullscreen-dialog .dialog-content{
+  width:100%;
+  height:100%;
+  padding:0;
+  overflow:hidden;
+}
+.fullscreen-screen-test{
+  position:absolute;
+  inset:0;
+  background:#fff;
+}
+.fullscreen-screen-test .test-pattern{
+  width:100%;
+  height:100%;
+  min-height:100%;
+  border-radius:0;
+}
+.screen-test-overlay{
+  position:absolute;
+  z-index:4;
+  left:50%;
+  bottom:max(24px,env(safe-area-inset-bottom));
+  transform:translateX(-50%);
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:8px 10px;
+  border-radius:10px;
+  background:#0f172add;
+  color:#fff;
+}
+.screen-test-overlay button{
+  border:0;
+  border-radius:8px;
+  padding:10px 14px;
+  background:#2563eb;
+  color:#fff;
+  font-weight:800;
+}
+.test-dialog.camera-fullscreen-dialog .dialog-content video{
+  width:100%;
+  height:100%;
+  max-height:none;
+  border-radius:0;
+  object-fit:cover;
+  background:#000;
+}
+.test-dialog.samsung-touch-dialog{
+  position:fixed;
+  inset:0;
+  width:100vw;
+  height:100vh;
+  width:100dvw;
+  height:100dvh;
+  max-width:none;
+  max-height:none;
+  margin:0;
+  border:0;
+  border-radius:0;
+  background:#fff;
+  color:#111;
+  padding:0;
+  overflow:hidden;
+}
+.test-dialog.samsung-touch-dialog::backdrop{background:#fff}
+.test-dialog.samsung-touch-dialog .dialog-head,
+.test-dialog.samsung-touch-dialog .dialog-actions{display:none}
+.test-dialog.samsung-touch-dialog .dialog-content{
+  width:100%;
+  height:100%;
+  padding:0;
+  color:#111;
+  overflow:hidden;
+  touch-action:none;
+  user-select:none;
+  -webkit-user-select:none;
+}
+.samsung-touch-test{
+  position:relative;
+  width:100%;
+  height:100%;
+  background:#fff;
+  overflow:hidden;
+  touch-action:none;
+  cursor:crosshair;
+  display:block;
+}
+.samsung-touch-point{
+  position:absolute;
+  width:clamp(8px,1.2vmin,12px);
+  height:clamp(8px,1.2vmin,12px);
+  border:1.5px solid #050505;
+  background:#fff;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+}
+.samsung-touch-point.touched{
+  border-color:#00a83e;
+  background:#18c95a;
+  box-shadow:0 0 4px #18c95a66;
+}
+.color-stage{position:fixed;inset:0;z-index:10;background:#fff;display:grid;place-items:center;color:#111}
+.color-stage button{position:absolute;bottom:25px;padding:12px 18px;border:0;border-radius:10px;background:#111;color:#fff}
+.result-note{font-size:13px;color:#cbd5e1}
+@media(min-width:600px){.test-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+[hidden]{display:none!important}
+.mode-picker{margin-top:20px}
+.mode-picker h2{margin-bottom:5px}
+.mode-buttons{display:grid;gap:9px;margin-top:16px}
+@media(min-width:520px){.mode-buttons{grid-template-columns:1fr 1fr}}
+
+/* Zoom Tech diagnostic visual system */
+body{padding:clamp(16px,3vw,30px) 14px;background:radial-gradient(ellipse at 8% -8%,#12325b 0,transparent 42%),radial-gradient(circle at 100% 15%,#172b48 0,transparent 34%),#070d19}
+.app{width:min(820px,100%)}
+.top{align-items:center;margin:8px 0 24px}.top h1{letter-spacing:-.8px}.top .muted{font-size:14px}
+.card{background:linear-gradient(145deg,#111e33,#0d1729);border-color:#263b58;box-shadow:0 12px 32px #02061738}
+.summary{padding:20px}.summary-line strong{font-size:34px;letter-spacing:-1px}.progress{height:9px;background:#26364d}.progress>div{background:linear-gradient(90deg,#087eff,#38bdf8);border-radius:20px}
+.device{padding:16px 18px}.device strong{font-size:14px;line-height:1.5}.mode-picker{padding:20px}.mode-buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.test-grid{gap:12px}.test-card{position:relative;min-height:142px;padding:17px;background:linear-gradient(150deg,#14243b,#0e192b);border-color:#2a405e;transition:transform .18s,border-color .18s,box-shadow .18s}.test-card:hover{transform:translateY(-2px);border-color:#3988e8;box-shadow:0 10px 24px #02061755}.test-icon{display:grid;place-items:center;width:38px;height:38px;margin-bottom:5px;border-radius:12px;background:#1d3c64;color:#8ec5ff;font-size:22px}.test-card b{font-size:14px}.status{font-weight:700;letter-spacing:.15px}.status.pending{background:#24344b;color:#cbd5e1}.status.approved{background:#123e32;color:#86efac}.status.failed{background:#4b202b;color:#fda4af}.status.unsupported{background:#493716;color:#fde68a}
+.btn{min-height:48px;transition:filter .15s,transform .15s}.btn:hover{filter:brightness(1.12)}.btn:active{transform:scale(.99)}.btn-primary{background:linear-gradient(135deg,#1675ed,#0754c7);box-shadow:0 7px 18px #0754c733}.btn-secondary{background:#17263b;border-color:#344b69}.test-dialog{box-shadow:0 24px 80px #0009;border-color:#355173}.dialog-actions button{min-height:46px}
+#orderContext{display:block;margin-top:5px;color:#78a8dc}
+@media(max-width:480px){body{padding:16px 12px}.mode-buttons{grid-template-columns:1fr}.test-grid{gap:9px}.test-card{min-height:132px;padding:13px}.summary{padding:16px}.stats{gap:10px}}
+
+.token-entry{display:grid;gap:10px;margin:18px 0 22px;padding:22px}.token-entry h2{font-size:20px}.token-input{width:100%;min-height:48px;padding:12px 14px;border:1px solid #385273;border-radius:12px;background:#081426;color:#f8fafc;font:inherit;letter-spacing:.5px}.token-input:focus{outline:2px solid #2585f5;outline-offset:2px}.token-entry .btn{margin-top:4px}
+
+.token-entry[hidden],.summary[hidden],.device[hidden],.mode-picker[hidden],.actions[hidden]{display:none!important}

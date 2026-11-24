@@ -451,7 +451,7 @@ document.getElementById("refreshInfo").addEventListener("click", deviceInfo);
 async function saveReport() {
   const message = document.getElementById("saveMessage");
   const report = {
-    results,
+    results: JSON.parse(JSON.stringify(results)),
     device: {
       ...detectedDeviceInfo,
       user_agent: navigator.userAgent,
@@ -468,30 +468,54 @@ async function saveReport() {
     }
   };
   const config = globalThis.ZOOMTECH_SUPABASE_CONFIG;
+  const testToken = new URLSearchParams(window.location.search).get("test");
+  if (!testToken) {
+    message.textContent = "Este diagnóstico não está vinculado a uma ordem de serviço. Solicite um novo link ao técnico.";
+    return;
+  }
   if (!config?.url || !config?.anonKey || !globalThis.supabase?.createClient) {
-    message.textContent = "O Supabase ainda não está configurado.";
-    console.log("Relatório de diagnóstico:", report);
+    message.textContent = "O serviço de diagnóstico ainda não está configurado.";
     return;
   }
   try {
-    const url = new URL(config.url);
-    const client = globalThis.supabase.createClient(url.origin, config.anonKey);
-    message.textContent = "Enviando relatório...";
-    const testToken = new URLSearchParams(window.location.search).get("test");
-    const { error } = await client.from("hardware_diagnostics").insert({
-      test_token: testToken,
-      results: report.results,
-      device: report.device,
-      summary: report.summary
+    const client = globalThis.supabase.createClient(config.url, config.anonKey);
+    message.textContent = "Enviando relatório seguro para a ordem de serviço...";
+    const { data, error } = await client.functions.invoke("hardware-diagnostics", {
+      body: { action: "submit", token: testToken, report }
     });
     if (error) throw error;
-    message.textContent = "Relatório enviado ao Supabase com sucesso.";
+    if (!data?.success) throw new Error(data?.error || "O servidor não confirmou o recebimento.");
+    message.textContent = `Relatório enviado e vinculado à OS-${String(data.order_number).padStart(4, "0")}.`;
+    document.getElementById("finishBtn").disabled = true;
   } catch (error) {
     console.error("Não foi possível salvar o diagnóstico:", error);
-    message.textContent = `Não foi possível salvar: ${error.message}`;
+    message.textContent = `Não foi possível enviar: ${error.message || "erro de comunicação"}`;
   }
 }
 document.getElementById("finishBtn").addEventListener("click", saveReport);
 
+const tokenFromUrl = new URLSearchParams(location.search).get("test");
+const tokenEntry = document.getElementById("tokenEntry");
+if (!tokenFromUrl) {
+  tokenEntry.hidden = false;
+  ["progressPercent", "progressCount", "progressBar", "approvedCount", "failedCount", "pendingCount"].forEach((id) => {
+    const element = document.getElementById(id);
+    if (element) element.closest(".summary")?.setAttribute("hidden", "");
+  });
+  document.querySelectorAll(".device, .mode-picker, .actions").forEach((element) => element.hidden = true);
+  document.getElementById("activateDiagnosticToken").addEventListener("click", () => {
+    const token = document.getElementById("diagnosticTokenInput").value.trim().toLowerCase();
+    const message = document.getElementById("tokenEntryMessage");
+    if (!/^[a-f0-9]{64}$/.test(token)) { message.textContent = "Código inválido. Confira o link enviado pelo técnico."; return; }
+    location.search = `?test=${encodeURIComponent(token)}`;
+  });
+} else if (tokenEntry) {
+  tokenEntry.hidden = true;
+}
+const orderContext = document.getElementById("orderContext");
+if (orderContext) orderContext.textContent = tokenFromUrl ? "Sessão vinculada à ordem de serviço · envio único · validade de 24 horas" : "Aguardando código da ordem de serviço";
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch((error) => console.warn("PWA indisponível:", error)));
+}
 deviceInfo();
 updateUI();

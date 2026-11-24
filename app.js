@@ -947,19 +947,41 @@ function saveServiceOrder(event) {
     toast(`Ordem OS-${String(order.number).padStart(4, "0")} criada e venda registrada.`);
   } else toast(`Ordem OS-${String(order.number).padStart(4, "0")} criada com sucesso.`);
 }
-function openServiceOrderDetails(id) {
+async function openServiceOrderDetails(id) {
   const order = state.serviceOrders.find((item) => item.id === id);
   if (!order) return toast("Não foi possível localizar esta ordem de serviço.", "error");
   const value = (text) => escapeHTML(text || "—");
   const row = (label, text) => `<div class="service-order-detail"><span>${escapeHTML(label)}</span><strong>${value(String(text ?? ""))}</strong></div>`;
   const section = (title, rows) => `<section class="service-order-detail-section"><h3>${escapeHTML(title)}</h3>${rows.join("")}</section>`;
   const openedAt = order.openedAt ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(order.openedAt)) : formatDate(order.createdAt);
+  order.hardwareDiagnostics = null;
+  if (supabaseClient) {
+    const { data: diagnostic, error: diagnosticError } = await supabaseClient
+      .from("hardware_diagnostics")
+      .select("id,created_at,results,device,summary")
+      .eq("order_id", order.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!diagnosticError && diagnostic) order.hardwareDiagnostics = diagnostic;
+    else if (diagnosticError) console.warn("Não foi possível carregar o laudo de hardware:", diagnosticError);
+  }
+  const hardwareStatusLabel = { approved: "Aprovado", failed: "Reprovado", unsupported: "Não suportado", pending: "Pendente" };
+  const hardwareRows = order.hardwareDiagnostics
+    ? Object.entries(order.hardwareDiagnostics.results || {}).map(([name, result]) => row(name, hardwareStatusLabel[result?.status] || "Sem resultado"))
+    : [row("Resultado", "Ainda não recebido")];
+  const hardwareSummary = order.hardwareDiagnostics?.summary || {};
+  const hardwareCreatedAt = order.hardwareDiagnostics?.created_at
+    ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(order.hardwareDiagnostics.created_at))
+    : "—";
   document.getElementById("service-order-details-title").textContent = `OS-${String(order.number).padStart(4, "0")} · ${order.status}`;
+  document.getElementById("create-hardware-diagnostic").dataset.orderId = order.id;
   document.getElementById("service-order-details-content").innerHTML = [
     section("Cabeçalho e identificação", [row("Abertura", openedAt), row("Previsão de entrega", order.dueDate ? formatDate(order.dueDate) : "—"), row("Status", order.status)]),
     section("Cliente", [row("Nome / razão social", order.customerName), row("CPF / CNPJ", order.customerDocument), row("Telefone principal", order.customerPhone), row("Telefone para recado / WhatsApp", order.customerSecondaryPhone), row("E-mail", order.customerEmail), row("Endereço", order.customerAddress)]),
     section("Equipamento", [row("Tipo", order.deviceType), row("Marca", order.deviceBrand), row("Modelo", order.deviceModel || order.device), row("Número de série / IMEI", order.serial), row(...serviceOrderPasswordDetails(order)), row("Estado de conservação", order.condition), row("Acessórios inclusos", order.accessories)]),
     section("Diagnóstico", [row("Defeito relatado", order.issue), row("Laudo técnico", order.diagnosis)]),
+    section("Laudo de hardware", [row("Recebido em", hardwareCreatedAt), row("Aparelho", order.hardwareDiagnostics?.device?.model || order.hardwareDiagnostics?.device?.brand || "—"), row("Resumo", order.hardwareDiagnostics ? `${hardwareSummary.approved || 0} aprovados · ${hardwareSummary.failed || 0} reprovados · ${hardwareSummary.unsupported || 0} não suportados · ${hardwareSummary.pending || 0} pendentes` : "Aguardando envio do cliente"), ...hardwareRows]),
     section("Valores e execução", [row("Mão de obra", money(order.labor || 0)), row("Peças / componentes", order.parts), row("Total de peças", money(order.partsTotal || 0)), row("Total do orçamento", money(order.estimate || 0)), row("Pagamento combinado", order.payment), row("Garantia", `${Number(order.warrantyDays) || 0} dias`)]),
     section("Termos e assinaturas", [row("Autorização de diagnóstico", order.authorized ? "Aceita" : "Não registrada"), row("Termo de equipamento abandonado (90 dias)", order.abandonedTermsAccepted ? "Aceito" : "Não registrado"), row("Responsabilidade sobre dados / backup", order.dataTermsAccepted ? "Aceito" : "Não registrado"), row("Assinatura do cliente", order.customerSignature), row("Assinatura do técnico", order.technicianSignature)]),
   ].join("");
@@ -981,6 +1003,7 @@ function serviceOrderDocument(order) {
     section("Cliente", [row("Nome / razão social", order.customerName), row("CPF / CNPJ", order.customerDocument), row("Telefone principal", order.customerPhone), row("Telefone para recado / WhatsApp", order.customerSecondaryPhone), row("E-mail", order.customerEmail), row("Endereço", order.customerAddress)]),
     section("Equipamento", [row("Tipo", order.deviceType), row("Marca", order.deviceBrand), row("Modelo", order.deviceModel || order.device), row("Número de série / IMEI", order.serial), row(...serviceOrderPasswordDetails(order)), row("Estado de conservação", order.condition), row("Acessórios inclusos", order.accessories)]),
     section("Diagnóstico", [row("Defeito relatado", order.issue), row("Laudo técnico", order.diagnosis)]),
+    section("Laudo de hardware", [row("Aparelho", order.hardwareDiagnostics?.device?.model || order.hardwareDiagnostics?.device?.brand || "—"), row("Resumo", order.hardwareDiagnostics ? `${order.hardwareDiagnostics.summary?.approved || 0} aprovados · ${order.hardwareDiagnostics.summary?.failed || 0} reprovados · ${order.hardwareDiagnostics.summary?.pending || 0} pendentes` : "Aguardando envio do cliente")]),
     section("Valores e execução", [row("Mão de obra", money(order.labor || 0)), row("Peças / componentes", order.parts), row("Total de peças", money(order.partsTotal || 0)), row("Total do orçamento", money(order.estimate || 0)), row("Pagamento combinado", order.payment), row("Garantia", `${Number(order.warrantyDays) || 0} dias`)]),
     section("Termos e assinaturas", [
       row("Autorização de diagnóstico", order.authorized ? "Aceita" : "Não registrada"),
@@ -1016,7 +1039,7 @@ function serviceOrderPdf(order) {
     ["Identificação", [["Abertura", openedAt], ["Previsão de entrega", order.dueDate ? formatDate(order.dueDate) : "—"], ["Status", order.status]]],
     ["Cliente", [["Nome / razão social", order.customerName], ["CPF / CNPJ", order.customerDocument], ["Telefone principal", order.customerPhone], ["Telefone para recado / WhatsApp", order.customerSecondaryPhone], ["E-mail", order.customerEmail], ["Endereço", order.customerAddress]]],
     ["Equipamento", [["Tipo", order.deviceType], ["Marca", order.deviceBrand], ["Modelo", order.deviceModel || order.device], ["Número de série / IMEI", order.serial], serviceOrderPasswordDetails(order), ["Estado de conservação", order.condition], ["Acessórios inclusos", order.accessories]]],
-    ["Diagnóstico", [["Defeito relatado", order.issue], ["Laudo técnico", order.diagnosis]]],
+    ["Diagnóstico", [["Defeito relatado", order.issue], ["Laudo técnico", order.diagnosis], ["Laudo de hardware", order.hardwareDiagnostics ? `${order.hardwareDiagnostics.summary?.approved || 0} aprovados; ${order.hardwareDiagnostics.summary?.failed || 0} reprovados; ${order.hardwareDiagnostics.summary?.pending || 0} pendentes` : "Não recebido"]]],
     ["Valores e execução", [["Mão de obra", money(order.labor || 0)], ["Peças / componentes", order.parts], ["Total de peças", money(order.partsTotal || 0)], ["Total do orçamento", money(order.estimate || 0)], ["Pagamento combinado", order.payment], ["Garantia", `${Number(order.warrantyDays) || 0} dias`]]],
     ["Termos e assinaturas", [
       ["Autorização de diagnóstico", order.authorized ? "Aceita" : "Não registrada"],
@@ -1765,20 +1788,41 @@ document.getElementById("hardware-reset").addEventListener("click", () => {
   document.querySelectorAll(".hardware-test-button").forEach((test) => { test.hidden = false; });
   toast("Testes de hardware reiniciados.");
 });
-function hardwareTestLink() {
-  const url = new URL(window.location.href);
-  url.pathname = url.pathname.replace(/[^/]*$/, "hardware-test.html");
-  url.search = "";
-  url.hash = "";
-  url.searchParams.set("test", globalThis.crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()));
-  return url.toString();
-}
-document.getElementById("hardware-share").addEventListener("click", () => {
-  const link = hardwareTestLink();
-  document.getElementById("hardware-share-link").value = link;
-  document.getElementById("hardware-share-qr").src =
-    `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(link)}`;
+async function createHardwareDiagnosticLink(orderId) {
+  const order = state.serviceOrders.find((item) => item.id === orderId);
+  if (!order) throw new Error("Ordem de serviço não encontrada.");
+  if (!supabaseClient) throw new Error("A plataforma não está conectada ao Supabase.");
+  const { data, error } = await supabaseClient.functions.invoke("hardware-diagnostics", {
+    body: { action: "create-session", order_id: order.id }
+  });
+  if (error) throw error;
+  if (!data?.success || !data?.token) throw new Error(data?.error || "Não foi possível gerar a sessão.");
+  const url = new URL("hardware-test.html", window.location.href);
+  url.searchParams.set("test", data.token);
+  document.getElementById("hardware-share-link").value = url.toString();
+  const qrImage = document.getElementById("hardware-share-qr");
+  try {
+    if (!globalThis.QRCode?.toDataURL) throw new Error("Gerador local de QR Code indisponível.");
+    qrImage.src = await globalThis.QRCode.toDataURL(url.toString(), { width: 260, margin: 2, errorCorrectionLevel: "M" });
+    qrImage.hidden = false;
+  } catch (qrError) {
+    console.warn("Não foi possível gerar o QR Code localmente:", qrError);
+    qrImage.hidden = true;
+  }
   document.getElementById("hardware-share-modal").showModal();
+  toast(`Link seguro criado para OS-${String(order.number).padStart(4, "0")}. Válido por 24 horas.`);
+}
+document.getElementById("create-hardware-diagnostic").addEventListener("click", async () => {
+  const orderId = document.getElementById("create-hardware-diagnostic").dataset.orderId;
+  const button = document.getElementById("create-hardware-diagnostic");
+  button.disabled = true;
+  try { await createHardwareDiagnosticLink(orderId); }
+  catch (error) { console.error(error); toast(error.message || "Falha ao gerar link de diagnóstico.", "error"); }
+  finally { button.disabled = false; }
+});
+document.getElementById("hardware-share").addEventListener("click", () => {
+  setPage("service-orders");
+  toast("Abra a ordem desejada e clique em 'Gerar link de diagnóstico'.");
 });
 document.getElementById("hardware-copy-link").addEventListener("click", async () => {
   const input = document.getElementById("hardware-share-link");
@@ -1790,7 +1834,8 @@ document.getElementById("hardware-whatsapp").addEventListener("click", () => {
   window.open(`https://wa.me/?text=${encodeURIComponent(`Olá! Conclua o teste de hardware pelo celular neste link: ${link}`)}`, "_blank");
 });
 document.getElementById("hardware-open-complete").addEventListener("click", () => {
-  window.open(hardwareTestLink(), "_blank", "noopener");
+  setPage("service-orders");
+  toast("Selecione uma ordem de serviço para iniciar o diagnóstico.");
 });
 function initializeClientHardwareTest() {
   if (!/hardware-test\.html$/i.test(window.location.pathname)

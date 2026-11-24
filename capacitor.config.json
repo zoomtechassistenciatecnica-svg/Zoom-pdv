@@ -1,0 +1,13 @@
+{
+  "appId": "br.com.zoomtech.diagnostico",
+  "appName": "Zoom Tech Diagn\u00f3stico",
+  "webDir": "mobile-www",
+  "bundledWebRuntime": false,
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#070d19",
+      "showSpinner": false
+    }
+  }
+}

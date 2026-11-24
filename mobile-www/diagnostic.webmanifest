@@ -1,0 +1,26 @@
+{
+  "id": "/hardware-test.html",
+  "name": "Zoom Tech Diagnóstico",
+  "short_name": "Zoom Diagnóstico",
+  "description": "Diagnóstico de hardware vinculado às ordens de serviço da Zoom Tech.",
+  "start_url": "./hardware-test.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#070d19",
+  "theme_color": "#020815",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "assets/zoom-diagnostic-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/zoom-diagnostic-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,2 +1,5 @@
 [functions.login-by-identifier]
 verify_jwt = false
+
+[functions.hardware-diagnostics]
+verify_jwt = false
