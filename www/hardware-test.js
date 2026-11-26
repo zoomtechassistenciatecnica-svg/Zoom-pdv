@@ -262,16 +262,21 @@ function runTouch(key) {
 async function runCamera(key) {
   const front = key === "cameraFront";
   enterFullScreen();
-  openTest(testNames[key], `<p>Autorize o acesso à câmera e confira a imagem.</p><video id="cameraVideo" autoplay playsinline muted></video><p id="cameraHint">Solicitando permissão...</p>`);
+  openTest(testNames[key], `<p>Confira a imagem e escolha uma opção abaixo.</p><video id="cameraVideo" autoplay playsinline muted></video><p id="cameraHint">Solicitando permissão...</p>`);
   dialog.classList.add("camera-fullscreen-dialog");
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: front ? "user" : "environment" } } });
     document.getElementById("cameraVideo").srcObject = stream;
     document.getElementById("cameraHint").textContent = "Câmera ativa.";
     activeCleanup = () => stream.getTracks().forEach((track) => track.stop());
+    const stopCamera = () => {
+      if (activeCleanup) activeCleanup();
+      activeCleanup = null;
+    };
     setButtons([
-      { label: "Imagem normal", primary: true, onClick: () => { activeCleanup(); activeCleanup = null; setResult(key, "approved"); dialog.close(); } },
-      { label: "Imagem com falha", onClick: () => { activeCleanup(); activeCleanup = null; setResult(key, "failed"); dialog.close(); } }
+      { label: "Aprovar: imagem normal", primary: true, onClick: () => { stopCamera(); setResult(key, "approved", { method: "manual_visual_check" }); dialog.close(); } },
+      { label: "Reprovar: imagem com falha", onClick: () => { stopCamera(); setResult(key, "failed", { method: "manual_visual_check" }); dialog.close(); } },
+      { label: "Não consegui testar", onClick: () => { stopCamera(); setResult(key, "unsupported", { method: "manual" }); dialog.close(); } }
     ]);
   } catch (error) { setResult(key, "unsupported", { error: error.message }); document.getElementById("cameraHint").textContent = `Câmera indisponível: ${error.message}`; confirmResult(key, "O teste pôde ser marcado manualmente."); }
 }

@@ -69,8 +69,25 @@ footer{line-height:1.5;text-align:center;margin:24px 0}
   top:12px;
   opacity:.15;
 }
-.test-dialog.samsung-fullscreen-dialog .dialog-actions,
-.test-dialog.camera-fullscreen-dialog .dialog-actions{display:none}
+.test-dialog.samsung-fullscreen-dialog .dialog-actions{display:none}
+.test-dialog.camera-fullscreen-dialog .dialog-actions{
+  position:absolute;
+  z-index:6;
+  right:16px;
+  bottom:max(16px,env(safe-area-inset-bottom));
+  left:16px;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.test-dialog.camera-fullscreen-dialog .dialog-actions button:nth-child(3){grid-column:1/-1}
+.test-dialog.camera-fullscreen-dialog .dialog-actions button{
+  flex:none;
+  min-width:0;
+  min-height:56px;
+  padding:10px;
+  box-shadow:0 6px 24px #0008;
+}
 .test-dialog.samsung-fullscreen-dialog .dialog-content,
 .test-dialog.camera-fullscreen-dialog .dialog-content{
   width:100%;
