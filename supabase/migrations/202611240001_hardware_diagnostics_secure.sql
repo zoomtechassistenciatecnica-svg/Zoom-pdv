@@ -1,29 +1,64 @@
--- Execute no SQL Editor do Supabase se preferir aplicar somente esta alteração.
-async function createHardwareDiagnosticLink(orderId) {
-  const order = state.serviceOrders.find((item) => item.id === orderId);
-  if (!order) throw new Error("Ordem de serviço não encontrada.");
-  if (!supabaseClient) throw new Error("A plataforma não está conectada ao Supabase.");
-  const { data, error } = await supabaseClient.functions.invoke("hardware-diagnostics", {
-    body: { action: "create-session", order_id: order.id }
-  });
-  if (error) throw error;
-  if (!data?.success || !data?.token) throw new Error(data?.error || "Não foi possível gerar a sessão.");
-  const url = new URL("hardware-test.html", window.location.href);
-  url.searchParams.set("test", data.token);
-  document.getElementById("hardware-share-link").value = url.toString();
-  document.getElementById("hardware-share-qr").src =
-    `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(url.toString())}`;
-  document.getElementById("hardware-share-modal").showModal();
-  toast(`Link seguro criado para OS-${String(order.number).padStart(4, "0")}. Válido por 24 horas.`);
-}
-document.getElementById("create-hardware-diagnostic").addEventListener("click", async () => {
-  const orderId = document.getElementById("create-hardware-diagnostic").dataset.orderId;
-  const button = document.getElementById("create-hardware-diagnostic");
-  button.disabled = true;
-  try { await createHardwareDiagnosticLink(orderId); }
-  catch (error) { console.error(error); toast(error.message || "Falha ao gerar link de diagnóstico.", "error"); }
-  finally { button.disabled = false; }
-});
-document.getElementById("hardware-share").addEventListener("click", () => {
-  toast("Para gerar um link seguro, abra uma ordem de serviço e use 'Gerar link de diagnóstico'.", "error");
-});
+
+-- Diagnósticos de hardware vinculados a uma OS.
+-- O cliente nunca insere diretamente.
+
+create table if not exists public.hardware_diagnostics (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  order_id text not null,
+  order_number integer,
+  technician_id uuid references auth.users(id) on delete set null,
+  results jsonb not null,
+  device jsonb not null,
+  summary jsonb not null
+);
+
+alter table public.hardware_diagnostics add column if not exists order_id text;
+alter table public.hardware_diagnostics add column if not exists order_number integer;
+alter table public.hardware_diagnostics add column if not exists technician_id uuid references auth.users(id) on delete set null;
+
+update public.hardware_diagnostics
+set order_id = 'legacy-unlinked'
+where order_id is null;
+
+alter table public.hardware_diagnostics alter column order_id set not null;
+
+create index if not exists hardware_diagnostics_order_created_idx
+  on public.hardware_diagnostics (order_id, created_at desc);
+
+create table if not exists public.hardware_diagnostic_sessions (
+  id uuid primary key default gen_random_uuid(),
+  token_hash text not null unique,
+  order_id text not null,
+  order_number integer,
+  technician_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  used_at timestamptz
+);
+
+create index if not exists hardware_diagnostic_sessions_expiry_idx
+  on public.hardware_diagnostic_sessions (expires_at)
+  where used_at is null;
+
+alter table public.hardware_diagnostics enable row level security;
+alter table public.hardware_diagnostic_sessions enable row level security;
+
+revoke all on table public.hardware_diagnostics from public, anon, authenticated;
+revoke all on table public.hardware_diagnostic_sessions from public, anon, authenticated;
+
+grant select on table public.hardware_diagnostics to authenticated;
+
+drop policy if exists "Allow visitors to submit hardware diagnostics"
+  on public.hardware_diagnostics;
+
+drop policy if exists "PDV users can read hardware diagnostics"
+  on public.hardware_diagnostics;
+
+create policy "PDV users can read hardware diagnostics"
+  on public.hardware_diagnostics
+  for select to authenticated
+  using (
+    public.has_pdv_access()
+    and (auth.jwt() ->> 'aal') = 'aal2'
+  );
