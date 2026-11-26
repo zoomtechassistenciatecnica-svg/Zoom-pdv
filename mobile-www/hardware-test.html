@@ -35,7 +35,13 @@
       <div class="progress"><div id="progressBar"></div></div>
       <div class="stats"><span><i class="dot ok"></i> <b id="approvedCount">0</b> aprovados</span><span><i class="dot fail"></i> <b id="failedCount">0</b> reprovados</span><span><i class="dot skip"></i> <b id="pendingCount">10</b> pendentes</span></div>
     </section>
-    <section class="device card"><div><span class="muted small">APARELHO DETECTADO</span><strong id="deviceInfo">Coletando informações...</strong><span id="orderContext" class="muted small"></span></div><button class="text-button" id="refreshInfo">Atualizar</button></section>
+    <section class="device card"><div class="device-details"><span class="muted small">APARELHO DETECTADO</span><strong id="deviceInfo">Coletando informações...</strong><span id="orderContext" class="muted small"></span><span class="device-info-hint">O navegador pode ocultar a marca, o modelo ou a versão do sistema.</span></div><div class="device-actions"><button class="text-button" id="refreshInfo" type="button">Detectar novamente</button><button class="text-button" id="editDeviceInfo" type="button">Informar aparelho</button></div></section>
+    <form class="card device-correction" id="deviceCorrectionForm" hidden>
+      <label>Marca<input id="deviceBrandInput" type="text" maxlength="60" placeholder="Ex.: Samsung"></label>
+      <label>Modelo<input id="deviceModelInput" type="text" maxlength="80" placeholder="Ex.: Galaxy A55"></label>
+      <label>Versão do sistema<input id="deviceSystemVersionInput" type="text" maxlength="30" placeholder="Ex.: 15"></label>
+      <div class="device-correction-actions"><button class="btn btn-primary" type="submit">Salvar identificação</button><button class="text-button" id="resetDeviceInfo" type="button">Usar detecção automática</button></div>
+    </form>
     <section class="mode-picker card" id="modePicker"><h2>Como deseja realizar o diagnóstico?</h2><p class="muted small">Escolha o diagnóstico completo guiado ou teste somente um componente.</p><div class="mode-buttons"><button class="btn btn-primary" id="autoModeBtn">▶ Diagnóstico automático</button><button class="btn btn-secondary" id="individualModeBtn">Testes individuais</button></div></section>
     <section id="individualArea" hidden><div class="section-heading"><h2>Testes disponíveis</h2><button class="text-button" id="backToModes">Voltar</button></div><section class="test-grid" id="testGrid">
       <button class="test-card" data-test="screen"><span class="test-icon">▧</span><b>Tela / Cores</b><small>Pixels e cores</small><em class="status pending">Pendente</em></button>

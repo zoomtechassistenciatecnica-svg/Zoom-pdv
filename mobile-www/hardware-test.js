@@ -95,10 +95,11 @@ function runScreen(key) {
   function next() {
     index += 1;
     if (index >= colors.length) {
+      dialog.classList.remove("samsung-fullscreen-dialog");
       content.innerHTML = "<p>Você visualizou todas as cores. Encontrou algum defeito?</p>";
       setButtons([
-        { label: "Tela normal", primary: true, onClick: () => { setResult(key, "approved", { colors_tested: colors.length }); dialog.close(); } },
-        { label: "Encontrei defeito", onClick: () => { setResult(key, "failed", { colors_tested: colors.length }); dialog.close(); } }
+        { label: "Aprovar: cores normais", primary: true, onClick: () => { setResult(key, "approved", { colors_tested: colors.length, method: "manual_visual_check" }); dialog.close(); } },
+        { label: "Reprovar: encontrei defeito", onClick: () => { setResult(key, "failed", { colors_tested: colors.length, method: "manual_visual_check" }); dialog.close(); } }
       ]);
       return;
     }
@@ -415,43 +416,119 @@ document.getElementById("autoModeBtn").addEventListener("click", async () => {
   setButtons([{ label: "Enviar diagnóstico", primary: true, onClick: () => { dialog.close(); saveReport(); } }, { label: "Revisar testes", onClick: () => { dialog.close(); individualArea.hidden = false; } }]);
 });
 
+function inferDeviceBrand(model) {
+  const rules = [
+    [/^(SM-|GT-|SCH-|SHV-|SAMSUNG)/i, "Samsung"],
+    [/^(PIXEL|GOOGLE)/i, "Google"],
+    [/^(REDMI|POCO|XIAOMI)/i, "Xiaomi"],
+    [/^(MOTO|XT\d|MOTOROLA)/i, "Motorola"],
+    [/^(HUAWEI|HONOR)/i, "Huawei"],
+    [/^(OPPO|CPH\d)/i, "OPPO"],
+    [/^(ONEPLUS|ONE PLUS)/i, "OnePlus"],
+    [/^VIVO/i, "vivo"],
+    [/^REALME/i, "realme"],
+    [/^(ASUS|ZENFONE|ROG)/i, "ASUS"],
+    [/^(SONY|XPERIA)/i, "Sony"],
+    [/^(NOKIA|HMD)/i, "HMD Global"],
+    [/^LG[-\s]/i, "LG"]
+  ];
+  return rules.find(([pattern]) => pattern.test(model))?.[1] || "";
+}
+
+function getBrowserName(brands, userAgent) {
+  const knownBrand = brands?.find(({ brand }) => /Google Chrome|Microsoft Edge|Opera|Brave/i.test(brand));
+  if (knownBrand) return knownBrand.brand;
+  const chromium = brands?.find(({ brand }) => /Chromium/i.test(brand));
+  if (chromium) return chromium.brand;
+  if (/Firefox\//i.test(userAgent)) return "Firefox";
+  if (/Safari\//i.test(userAgent) && !/Chrome\//i.test(userAgent)) return "Safari";
+  return "Não identificado";
+}
+
+function renderDeviceInfo(device) {
+  const details = [
+    `Marca: ${device.brand}`,
+    `Modelo: ${device.model}`,
+    `Sistema: ${device.system}${device.system_version ? ` ${device.system_version}` : ""}`,
+    `Navegador: ${device.browser}`,
+    `Tela: ${device.screen_width} × ${device.screen_height}`
+  ];
+  document.getElementById("deviceInfo").textContent = details.join(" • ");
+}
+
 async function deviceInfo() {
   const ua = navigator.userAgent;
+  const userAgentData = navigator.userAgentData;
+  let highEntropy = {};
+  if (userAgentData?.getHighEntropyValues) {
+    try {
+      highEntropy = await userAgentData.getHighEntropyValues(["model", "platformVersion"]);
+    } catch (error) {
+      console.warn("Não foi possível obter dados detalhados do aparelho:", error);
+    }
+  }
   const androidMatch = ua.match(/;\s*([^;)]+)\s*Build\//i);
   const appleMatch = ua.match(/(iPhone|iPad)[^;)]*/i);
-  const inferredModel = androidMatch?.[1]?.trim() || appleMatch?.[0]?.trim() || navigator.userAgentData?.model || "Modelo não identificado";
-  const platform = navigator.userAgentData?.platform || navigator.platform || "Não identificado";
-  const brand = navigator.userAgentData?.brands?.[0]?.brand || (ua.includes("Android") ? "Android" : ua.includes("iPhone") || ua.includes("iPad") ? "Apple" : "Não identificado");
-  const model = inferredModel;
-  const system = ua.includes("Android") ? "Android" : ua.includes("iPhone") || ua.includes("iPad") ? "iOS" : "Outro sistema";
-  const systemVersion = "";
-  const manufacturer = "";
-  const hardware = "";
-  const resolution = `${screen.width} × ${screen.height}`;
-  const details = [
-    `Marca: ${brand}`,
-    `Modelo: ${model}`,
-    manufacturer && manufacturer !== brand ? `Fabricante: ${manufacturer}` : "",
-    `Sistema: ${system}${systemVersion ? ` ${systemVersion}` : ""}`,
-    `Plataforma: ${platform}`,
-    hardware ? `Hardware: ${hardware}` : "",
-    `Tela: ${resolution}`
-  ].filter(Boolean).join(" • ");
-
+  const hintedModel = typeof highEntropy.model === "string" ? highEntropy.model.trim() : "";
+  const system = /Android/i.test(ua) || /^Android$/i.test(userAgentData?.platform || "")
+    ? "Android"
+    : /iPhone|iPad/i.test(ua)
+      ? "iOS"
+      : "Outro sistema";
+  const model = androidMatch?.[1]?.trim() || appleMatch?.[0]?.trim() || hintedModel || "Modelo não identificado";
+  const inferredBrand = system === "iOS" ? "Apple" : inferDeviceBrand(model) || "Não identificada";
+  const androidVersion = ua.match(/Android[\s/-]([\d.]+)/i)?.[1];
+  const iosVersion = ua.match(/OS ([\d_]+) like Mac OS X/i)?.[1]?.replace(/_/g, ".");
+  const systemVersion = system === "Android" || system === "iOS"
+    ? (highEntropy.platformVersion || androidVersion || iosVersion || "").replace(/(\.0)+$/, "")
+    : "";
+  const platform = userAgentData?.platform || navigator.platform || "Não identificado";
+  const browser = getBrowserName(userAgentData?.brands, ua);
   detectedDeviceInfo = {
-    brand,
-    manufacturer,
+    brand: inferredBrand,
+    manufacturer: inferredBrand === "Não identificada" ? "" : inferredBrand,
     model,
     system,
     system_version: systemVersion,
     platform,
-    hardware,
+    browser,
     screen_width: screen.width,
-    screen_height: screen.height
+    screen_height: screen.height,
+    ...manualDeviceInfo
   };
-  document.getElementById("deviceInfo").textContent = details;
+  renderDeviceInfo(detectedDeviceInfo);
 }
 document.getElementById("refreshInfo").addEventListener("click", deviceInfo);
+let manualDeviceInfo = {};
+document.getElementById("editDeviceInfo").addEventListener("click", () => {
+  const form = document.getElementById("deviceCorrectionForm");
+  form.hidden = !form.hidden;
+  if (!form.hidden) {
+    document.getElementById("deviceBrandInput").value = detectedDeviceInfo?.brand === "Não identificada" ? "" : detectedDeviceInfo?.brand || "";
+    document.getElementById("deviceModelInput").value = detectedDeviceInfo?.model === "Modelo não identificado" ? "" : detectedDeviceInfo?.model || "";
+    document.getElementById("deviceSystemVersionInput").value = detectedDeviceInfo?.system_version || "";
+  }
+});
+document.getElementById("deviceCorrectionForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const brandInput = document.getElementById("deviceBrandInput").value.trim();
+  const modelInput = document.getElementById("deviceModelInput").value.trim();
+  const brand = brandInput || inferDeviceBrand(modelInput) || "Não identificada";
+  manualDeviceInfo = {
+    brand,
+    manufacturer: brand === "Não identificada" ? "" : brand,
+    model: modelInput || "Modelo não identificado",
+    system_version: document.getElementById("deviceSystemVersionInput").value.trim()
+  };
+  detectedDeviceInfo = { ...detectedDeviceInfo, ...manualDeviceInfo };
+  renderDeviceInfo(detectedDeviceInfo);
+  document.getElementById("deviceCorrectionForm").hidden = true;
+});
+document.getElementById("resetDeviceInfo").addEventListener("click", () => {
+  manualDeviceInfo = {};
+  deviceInfo();
+  document.getElementById("deviceCorrectionForm").hidden = true;
+});
 
 async function saveReport() {
   const message = document.getElementById("saveMessage");
