@@ -1925,6 +1925,7 @@ async function loadWorkspace() {
     if (order.status !== "Entregue") return count;
     return count + Number(recordServiceOrderSale(order));
   }, 0);
+  document.getElementById("login-screen").hidden = true;
   document.querySelector(".app-shell").hidden = false;
   document.body.classList.add("is-authenticated");
   if (deliveredSalesCreated) saveState();
@@ -2079,6 +2080,14 @@ async function startMfaVerification() {
 }
 
 async function initializeAuthentication() {
+  const sensitiveAuthParams = new URLSearchParams(window.location.search);
+  if (sensitiveAuthParams.has("email") || sensitiveAuthParams.has("password")) {
+    sensitiveAuthParams.delete("email");
+    sensitiveAuthParams.delete("password");
+    const cleanedSearch = sensitiveAuthParams.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${cleanedSearch ? `?${cleanedSearch}` : ""}${window.location.hash}`);
+  }
+
   const config = globalThis.ZOOMTECH_SUPABASE_CONFIG;
   if (!config?.url || !config?.anonKey || !globalThis.supabase?.createClient) {
     document.getElementById("login-submit").disabled = true;
@@ -2103,6 +2112,7 @@ async function initializeAuthentication() {
   supabaseClient.auth.onAuthStateChange((event) => {
     if (event === "SIGNED_OUT") {
       clearTimeout(saveTimer);
+      document.getElementById("login-screen").hidden = false;
       document.querySelector(".app-shell").hidden = true;
       document.body.classList.remove("is-authenticated");
       state = seedData();
