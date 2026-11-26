@@ -1800,8 +1800,15 @@ async function createHardwareDiagnosticLink(orderId) {
   const url = new URL("hardware-test.html", window.location.href);
   url.searchParams.set("test", data.token);
   document.getElementById("hardware-share-link").value = url.toString();
-  document.getElementById("hardware-share-qr").src =
-    `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(url.toString())}`;
+  const qrImage = document.getElementById("hardware-share-qr");
+  try {
+    if (!globalThis.QRCode?.toDataURL) throw new Error("Gerador local de QR Code indisponível.");
+    qrImage.src = await globalThis.QRCode.toDataURL(url.toString(), { width: 260, margin: 2, errorCorrectionLevel: "M" });
+    qrImage.hidden = false;
+  } catch (qrError) {
+    console.warn("Não foi possível gerar o QR Code localmente:", qrError);
+    qrImage.hidden = true;
+  }
   document.getElementById("hardware-share-modal").showModal();
   toast(`Link seguro criado para OS-${String(order.number).padStart(4, "0")}. Válido por 24 horas.`);
 }

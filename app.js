@@ -1824,21 +1824,6 @@ document.getElementById("hardware-share").addEventListener("click", () => {
   setPage("service-orders");
   toast("Abra a ordem desejada e clique em 'Gerar link de diagnóstico'.");
 });
-function hardwareTestLink() {
-  const url = new URL(window.location.href);
-  url.pathname = url.pathname.replace(/[^/]*$/, "hardware-test.html");
-  url.search = "";
-  url.hash = "";
-  url.searchParams.set("test", globalThis.crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()));
-  return url.toString();
-}
-document.getElementById("hardware-share").addEventListener("click", () => {
-  const link = hardwareTestLink();
-  document.getElementById("hardware-share-link").value = link;
-  document.getElementById("hardware-share-qr").src =
-    `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(link)}`;
-  document.getElementById("hardware-share-modal").showModal();
-});
 document.getElementById("hardware-copy-link").addEventListener("click", async () => {
   const input = document.getElementById("hardware-share-link");
   await navigator.clipboard.writeText(input.value);
