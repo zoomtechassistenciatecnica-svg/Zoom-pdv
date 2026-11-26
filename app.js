@@ -979,6 +979,7 @@ async function openServiceOrderDetails(id) {
   if (document.getElementById("service-order-hardware-share")) document.getElementById("service-order-hardware-share").hidden = true;
   if (document.getElementById("service-order-hardware-link")) document.getElementById("service-order-hardware-link").value = "";
   if (document.getElementById("service-order-hardware-qr")) document.getElementById("service-order-hardware-qr").hidden = true;
+  const hardwareShareSection = document.getElementById("service-order-hardware-share");
   document.getElementById("service-order-details-content").innerHTML = [
     section("Cabeçalho e identificação", [row("Abertura", openedAt), row("Previsão de entrega", order.dueDate ? formatDate(order.dueDate) : "—"), row("Status", order.status)]),
     section("Cliente", [row("Nome / razão social", order.customerName), row("CPF / CNPJ", order.customerDocument), row("Telefone principal", order.customerPhone), row("Telefone para recado / WhatsApp", order.customerSecondaryPhone), row("E-mail", order.customerEmail), row("Endereço", order.customerAddress)]),
@@ -988,6 +989,7 @@ async function openServiceOrderDetails(id) {
     section("Valores e execução", [row("Mão de obra", money(order.labor || 0)), row("Peças / componentes", order.parts), row("Total de peças", money(order.partsTotal || 0)), row("Total do orçamento", money(order.estimate || 0)), row("Pagamento combinado", order.payment), row("Garantia", `${Number(order.warrantyDays) || 0} dias`)]),
     section("Termos e assinaturas", [row("Autorização de diagnóstico", order.authorized ? "Aceita" : "Não registrada"), row("Termo de equipamento abandonado (90 dias)", order.abandonedTermsAccepted ? "Aceito" : "Não registrado"), row("Responsabilidade sobre dados / backup", order.dataTermsAccepted ? "Aceito" : "Não registrado"), row("Assinatura do cliente", order.customerSignature), row("Assinatura do técnico", order.technicianSignature)]),
   ].join("");
+  document.querySelector("#service-order-details-modal .modal-heading").after(hardwareShareSection);
   document.getElementById("download-service-order-details").dataset.downloadServiceOrder = order.id;
   document.getElementById("print-service-order-details").dataset.printServiceOrder = order.id;
   document.getElementById("share-service-order-details").dataset.shareServiceOrder = order.id;
@@ -1807,23 +1809,41 @@ async function createHardwareDiagnosticLink(orderId) {
   const inlineQrImage = document.getElementById("service-order-hardware-qr");
   const inlineShare = document.getElementById("service-order-hardware-share");
   const inlineLink = document.getElementById("service-order-hardware-link");
+  if (!inlineQrImage || !inlineShare || !inlineLink) {
+    throw new Error("Não foi possível localizar a área do QR Code na ordem de serviço.");
+  }
+  inlineLink.value = url.toString();
+  inlineShare.hidden = false;
   try {
-    if (!globalThis.QRCode?.toDataURL) throw new Error("Gerador local de QR Code indisponível.");
-    const qrDataUrl = await globalThis.QRCode.toDataURL(url.toString(), { width: 260, margin: 2, errorCorrectionLevel: "M" });
+    const qrDataUrl = generateHardwareQrDataUrl(url.toString(), 260);
     qrImage.src = qrDataUrl;
     qrImage.hidden = false;
-    if (inlineQrImage) {
-      inlineQrImage.src = qrDataUrl;
-      inlineQrImage.hidden = false;
-    }
-    if (inlineLink) inlineLink.value = url.toString();
-    if (inlineShare) inlineShare.hidden = false;
+    inlineQrImage.src = qrDataUrl;
+    inlineQrImage.hidden = false;
   } catch (qrError) {
     console.warn("Não foi possível gerar o QR Code localmente:", qrError);
     qrImage.hidden = true;
-    inlineShare.hidden = true;
+    inlineQrImage.hidden = true;
+    toast("Link criado, mas o QR Code não foi gerado. Use o link exibido ou tente novamente.", "error");
+    return;
   }
   toast(`Link seguro criado para OS-${String(order.number).padStart(4, "0")}. Válido por 24 horas.`);
+}
+function generateHardwareQrDataUrl(text, size) {
+  const QrCode = globalThis.QRCode;
+  if (typeof QrCode !== "function" || !QrCode.CorrectLevel) {
+    throw new Error("Gerador de QR Code indisponível.");
+  }
+  const container = document.createElement("div");
+  new QrCode(container, {
+    text,
+    width: size,
+    height: size,
+    correctLevel: QrCode.CorrectLevel.M,
+  });
+  const canvas = container.querySelector("canvas");
+  if (!canvas) throw new Error("Não foi possível renderizar a imagem do QR Code.");
+  return canvas.toDataURL("image/png");
 }
 document.getElementById("create-hardware-diagnostic").addEventListener("click", async () => {
   const orderId = document.getElementById("create-hardware-diagnostic").dataset.orderId;
