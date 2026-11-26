@@ -976,6 +976,9 @@ async function openServiceOrderDetails(id) {
     : "—";
   document.getElementById("service-order-details-title").textContent = `OS-${String(order.number).padStart(4, "0")} · ${order.status}`;
   document.getElementById("create-hardware-diagnostic").dataset.orderId = order.id;
+  if (document.getElementById("service-order-hardware-share")) document.getElementById("service-order-hardware-share").hidden = true;
+  if (document.getElementById("service-order-hardware-link")) document.getElementById("service-order-hardware-link").value = "";
+  if (document.getElementById("service-order-hardware-qr")) document.getElementById("service-order-hardware-qr").hidden = true;
   document.getElementById("service-order-details-content").innerHTML = [
     section("Cabeçalho e identificação", [row("Abertura", openedAt), row("Previsão de entrega", order.dueDate ? formatDate(order.dueDate) : "—"), row("Status", order.status)]),
     section("Cliente", [row("Nome / razão social", order.customerName), row("CPF / CNPJ", order.customerDocument), row("Telefone principal", order.customerPhone), row("Telefone para recado / WhatsApp", order.customerSecondaryPhone), row("E-mail", order.customerEmail), row("Endereço", order.customerAddress)]),
@@ -1801,15 +1804,25 @@ async function createHardwareDiagnosticLink(orderId) {
   url.searchParams.set("test", data.token);
   document.getElementById("hardware-share-link").value = url.toString();
   const qrImage = document.getElementById("hardware-share-qr");
+  const inlineQrImage = document.getElementById("service-order-hardware-qr");
+  const inlineShare = document.getElementById("service-order-hardware-share");
+  const inlineLink = document.getElementById("service-order-hardware-link");
   try {
     if (!globalThis.QRCode?.toDataURL) throw new Error("Gerador local de QR Code indisponível.");
-    qrImage.src = await globalThis.QRCode.toDataURL(url.toString(), { width: 260, margin: 2, errorCorrectionLevel: "M" });
+    const qrDataUrl = await globalThis.QRCode.toDataURL(url.toString(), { width: 260, margin: 2, errorCorrectionLevel: "M" });
+    qrImage.src = qrDataUrl;
     qrImage.hidden = false;
+    if (inlineQrImage) {
+      inlineQrImage.src = qrDataUrl;
+      inlineQrImage.hidden = false;
+    }
+    if (inlineLink) inlineLink.value = url.toString();
+    if (inlineShare) inlineShare.hidden = false;
   } catch (qrError) {
     console.warn("Não foi possível gerar o QR Code localmente:", qrError);
     qrImage.hidden = true;
+    inlineShare.hidden = true;
   }
-  document.getElementById("hardware-share-modal").showModal();
   toast(`Link seguro criado para OS-${String(order.number).padStart(4, "0")}. Válido por 24 horas.`);
 }
 document.getElementById("create-hardware-diagnostic").addEventListener("click", async () => {
@@ -1828,6 +1841,12 @@ document.getElementById("hardware-copy-link").addEventListener("click", async ()
   const input = document.getElementById("hardware-share-link");
   await navigator.clipboard.writeText(input.value);
   toast("Link copiado.");
+});
+document.getElementById("copy-service-order-hardware-link")?.addEventListener("click", async () => {
+  const input = document.getElementById("service-order-hardware-link");
+  if (!input?.value) return;
+  await navigator.clipboard.writeText(input.value);
+  toast("Link do teste copiado.");
 });
 document.getElementById("hardware-whatsapp").addEventListener("click", () => {
   const link = document.getElementById("hardware-share-link").value;
